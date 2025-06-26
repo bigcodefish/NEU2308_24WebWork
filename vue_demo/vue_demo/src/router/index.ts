@@ -1,6 +1,7 @@
-import { createRouter, createWebHistory} from 'vue-router'
+import { createRouter, createWebHistory } from 'vue-router'
 import type { RouteRecordRaw } from 'vue-router'
 import SystemManagement from '@/views/SystemManagement.vue'
+import DefectManagement from '@/views/DefectManagement.vue' // 缺陷管理页面
 
 // 定义路由元信息类型
 declare module 'vue-router' {
@@ -34,7 +35,7 @@ const systemRoutes: RouteRecordRaw[] = [
   {
     path: 'menu',
     name: 'MenuManagement',
-    component: () => import('@/views/MenuManagementView.vue'), // 注意文件名修正
+    component: () => import('@/views/MenuManagementView.vue'),
     meta: {
       title: '菜单管理',
       permissions: ['system:menu:view']
@@ -60,10 +61,11 @@ const systemRoutes: RouteRecordRaw[] = [
   }
 ]
 
+// 路由配置
 const routes: RouteRecordRaw[] = [
   {
     path: '/',
-    redirect: '/system', // 直接重定向到系统管理
+    redirect: '/system', // 默认跳转
   },
   {
     path: '/system',
@@ -73,8 +75,18 @@ const routes: RouteRecordRaw[] = [
       title: '系统管理',
       requiresAuth: true
     },
-    redirect: '/system/user', // 默认重定向到用户管理
+    redirect: '/system/user',
     children: systemRoutes
+  },
+  {
+    path: '/defect',
+    name: 'DefectManagement',
+    component: DefectManagement,
+    meta: {
+      title: '缺陷管理',
+      requiresAuth: true,
+      permissions: ['defect:view']
+    }
   }
 ]
 
@@ -83,16 +95,13 @@ const router = createRouter({
   routes
 })
 
-// 路由守卫 - 权限控制
+// 路由守卫
 router.beforeEach((to, from, next) => {
-  // 设置页面标题
   document.title = to.meta.title ? `${to.meta.title} - 智能巡线车云平台` : '智能巡线车云平台'
 
-  // 检查是否需要认证
   if (to.meta.requiresAuth) {
-    // 这里添加你的认证逻辑
-    const isAuthenticated = true // 假设已认证
-    
+    const isAuthenticated = true
+
     if (!isAuthenticated) {
       next({
         path: '/login',
@@ -101,13 +110,11 @@ router.beforeEach((to, from, next) => {
       return
     }
 
-    // 检查权限
     if (to.meta.permissions) {
-      // 这里添加你的权限检查逻辑
-      const hasPermission = true // 假设有权限
-      
+      const hasPermission = true
+
       if (!hasPermission) {
-        next('/403') // 无权限页面
+        next('/403')
         return
       }
     }

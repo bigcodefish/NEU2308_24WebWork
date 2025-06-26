@@ -24,7 +24,7 @@
       <div class="btn-group">
         <button class="btn btn-primary" @click="addMenu">新增</button>
         <button class="btn btn-success" @click="editMenu">修改</button>
-        <button class="btn btn-danger" @click="deleteMenu">删除</button>
+        <button class="btn btn-danger" @click="deleteMenu(null)">删除</button>
       </div>
       <button class="btn" @click="refresh">刷新</button>
     </div>
