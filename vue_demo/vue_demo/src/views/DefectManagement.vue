@@ -117,6 +117,7 @@
             <col style="width: 6%">   <!-- 处理人员 -->
             <col style="width: 8%">  <!-- 操作 -->
           </colgroup>
+
           <thead>
             <tr>
               <th><input type="checkbox" v-model="selectAll"></th>
