@@ -91,6 +91,8 @@
           <button class="btn" @click="exportExcel">导出Excel</button>
           <button class="btn" @click="batchConfirmReal" :disabled="selectedIds.length === 0">批量确认属实</button>
           <button class="btn" @click="batchMarkFixed" :disabled="selectedIds.length === 0">批量标记整改</button>
+          <!-- 添加重置排序按钮 -->
+          <button class="btn" @click="resetSort" :disabled="!sortField">重置排序</button>
         </div>
         <button class="btn" @click="loadData">刷新</button>
       </div>
@@ -117,26 +119,109 @@
             <col style="width: 6%">   <!-- 处理人员 -->
             <col style="width: 8%">  <!-- 操作 -->
           </colgroup>
-
           <thead>
             <tr>
               <th><input type="checkbox" v-model="selectAll"></th>
               <th>序号</th>
-              <th>缺陷编号</th>
-              <th>任务名称</th>
-              <th>具体位置</th>
-              <th>缺陷类型</th>
-              <th>距离</th>
+              <th @click="sortBy('defectNo')" class="sortable">
+                缺陷编号
+                <span v-if="sortField === 'defectNo'">
+                  <i v-if="sortDirection === 'asc'" class="arrow-up">↑</i>
+                  <i v-else class="arrow-down">↓</i>
+                </span>
+              </th>
+              <th @click="sortBy('taskName')" class="sortable">
+                任务名称
+                <span v-if="sortField === 'taskName'">
+                  <i v-if="sortDirection === 'asc'" class="arrow-up">↑</i>
+                  <i v-else class="arrow-down">↓</i>
+                </span>
+              </th>
+              <th @click="sortBy('location')" class="sortable">
+                具体位置
+                <span v-if="sortField === 'location'">
+                  <i v-if="sortDirection === 'asc'" class="arrow-up">↑</i>
+                  <i v-else class="arrow-down">↓</i>
+                </span>
+              </th>
+              <th @click="sortBy('defectType')" class="sortable">
+                缺陷类型
+                <span v-if="sortField === 'defectType'">
+                  <i v-if="sortDirection === 'asc'" class="arrow-up">↑</i>
+                  <i v-else class="arrow-down">↓</i>
+                </span>
+              </th>
+              <th @click="sortBy('distance')" class="sortable">
+                距离
+                <span v-if="sortField === 'distance'">
+                  <i v-if="sortDirection === 'asc'" class="arrow-up">↑</i>
+                  <i v-else class="arrow-down">↓</i>
+                </span>
+              </th>
               <th>缺陷图片及详情</th>
-              <th>属实</th>
-              <th>严重程度</th>
-              <th>状态</th>
-              <th>缺陷长度</th>
-              <th>缺陷面积</th>
-              <th>缺陷数量</th>
-              <th>发现人员</th>
-              <th>发现方式</th>
-              <th>处理人员</th>
+              <th @click="sortBy('isReal')" class="sortable">
+                属实
+                <span v-if="sortField === 'isReal'">
+                  <i v-if="sortDirection === 'asc'" class="arrow-up">↑</i>
+                  <i v-else class="arrow-down">↓</i>
+                </span>
+              </th>
+              <th @click="sortBy('severity')" class="sortable">
+                严重程度
+                <span v-if="sortField === 'severity'">
+                  <i v-if="sortDirection === 'asc'" class="arrow-up">↑</i>
+                  <i v-else class="arrow-down">↓</i>
+                </span>
+              </th>
+              <th @click="sortBy('status')" class="sortable">
+                状态
+                <span v-if="sortField === 'status'">
+                  <i v-if="sortDirection === 'asc'" class="arrow-up">↑</i>
+                  <i v-else class="arrow-down">↓</i>
+                </span>
+              </th>
+              <th @click="sortBy('defectLength')" class="sortable">
+                缺陷长度
+                <span v-if="sortField === 'defectLength'">
+                  <i v-if="sortDirection === 'asc'" class="arrow-up">↑</i>
+                  <i v-else class="arrow-down">↓</i>
+                </span>
+              </th>
+              <th @click="sortBy('defectArea')" class="sortable">
+                缺陷面积
+                <span v-if="sortField === 'defectArea'">
+                  <i v-if="sortDirection === 'asc'" class="arrow-up">↑</i>
+                  <i v-else class="arrow-down">↓</i>
+                </span>
+              </th>
+              <th @click="sortBy('defectCount')" class="sortable">
+                缺陷数量
+                <span v-if="sortField === 'defectCount'">
+                  <i v-if="sortDirection === 'asc'" class="arrow-up">↑</i>
+                  <i v-else class="arrow-down">↓</i>
+                </span>
+              </th>
+              <th @click="sortBy('discoverer')" class="sortable">
+                发现人员
+                <span v-if="sortField === 'discoverer'">
+                  <i v-if="sortDirection === 'asc'" class="arrow-up">↑</i>
+                  <i v-else class="arrow-down">↓</i>
+                </span>
+              </th>
+              <th @click="sortBy('discoveryMethod')" class="sortable">
+                发现方式
+                <span v-if="sortField === 'discoveryMethod'">
+                  <i v-if="sortDirection === 'asc'" class="arrow-up">↑</i>
+                  <i v-else class="arrow-down">↓</i>
+                </span>
+              </th>
+              <th @click="sortBy('processor')" class="sortable">
+                处理人员
+                <span v-if="sortField === 'processor'">
+                  <i v-if="sortDirection === 'asc'" class="arrow-up">↑</i>
+                  <i v-else class="arrow-down">↓</i>
+                </span>
+              </th>
               <th>操作</th>
             </tr>
           </thead>
@@ -212,60 +297,73 @@
         </table>
       </div>
 
-           <div class="pagination">
-                <button @click="prevPage" :disabled="currentPage === 1">«</button>
-                
-                <span v-for="(page, index) in displayedPages" :key="index">
-                  <template v-if="page === '...'">
-                    <span class="ellipsis">...</span>
-                  </template>
-                  <template v-else>
-                    <span :class="{ active: page === currentPage }" @click="goToPage(page as number)">
-                      [{{ page }}]
-                    </span>
-                  </template>
-                </span>
-                
-                <button @click="nextPage" :disabled="currentPage === pageCount">»</button>
-                
-                <span class="page-jump">
-                  跳至 <input type="number" v-model.number="jumpPage" min="1" :max="pageCount" /> 页
-                  <button @click="jumpToPage">确定</button>
-                </span>
-                <span class="total-records">共 {{ defects.length }} 条记录</span>
-              </div>
+      <div class="pagination">
+        <button @click="prevPage" :disabled="currentPage === 1">«</button>
+        
+        <span v-for="(page, index) in displayedPages" :key="index">
+          <template v-if="page === '...'">
+            <span class="ellipsis">...</span>
+          </template>
+          <template v-else>
+            <span :class="{ active: page === currentPage }" @click="goToPage(page as number)">
+              [{{ page }}]
+            </span>
+          </template>
+        </span>
+        
+        <button @click="nextPage" :disabled="currentPage === pageCount">»</button>
+        
+        <span class="page-jump">
+          跳至 <input type="number" v-model.number="jumpPage" min="1" :max="pageCount" /> 页
+          <button @click="jumpToPage">确定</button>
+        </span>
+        <span class="total-records">共 {{ defects.length }} 条记录</span>
+      </div>
     </div>
 
-    <!-- 图片模态框 -->
+    <!-- 图片模态框 - 已修复拖拽问题 -->
     <div v-if="modalVisible" class="modal" @click.self="closeModal">
       <div class="modal-content">
         <span class="close" @click="closeModal">&times;</span>
-              <div class="modal-image">
-                <!-- 图片控制栏 -->
-                <div class="image-controls">
-                  <button class="control-btn" @click="zoomIn">放大</button>
-                  <button class="control-btn" @click="zoomOut">缩小</button>
-                  <button class="control-btn" @click="rotateImage">旋转</button>
-                  <button class="control-btn" 
-                          @click="downloadImage" 
-                          :disabled="downloading || !modalData.imageUrl">
-                    {{ downloading ? '下载中...' : '下载' }}
-                  </button>
-                  <button class="control-btn" @click="resetImage">重置</button>
-                </div>
-                
-                <div class="image-container" ref="imageContainer">
-                  <span v-if="!modalData.imageUrl">高清缺陷图片预览区域</span>
-                  <img v-else :src="getImageUrl(modalData.imageUrl)" 
-                       alt="缺陷大图" 
-                       ref="modalImage"
-                       :style="{
-                         transform: `scale(${imageScale}) rotate(${imageRotation}deg)`,
-                         maxWidth: '100%',
-                         maxHeight: '100%'
-                       }" />
-                </div>
-              </div>
+        <div class="modal-image">
+          <div class="image-container" 
+               ref="imageContainer"
+               @wheel.prevent="handleWheel"
+               @mousedown="startDrag"
+               @touchstart="startDrag"
+          >
+            <span v-if="!modalData.imageUrl" class="no-image-hint">暂无图片</span>
+            <img v-else 
+                 :src="getImageUrl(modalData.imageUrl)" 
+                 alt="缺陷大图" 
+                 ref="modalImage"
+                 draggable="false"
+                 :style="{
+                   transform: `translate(${imagePosition.x}px, ${imagePosition.y}px) scale(${imageScale}) rotate(${imageRotation}deg)`,
+                   maxWidth: '100%',
+                   maxHeight: '100%',
+                   cursor: isDragging ? 'grabbing' : imageScale > 1 ? 'grab' : 'default'
+                 }" 
+            />
+          </div>
+          
+          <!-- 图片控制栏 -->
+          <div class="image-controls" v-if="modalData.imageUrl">
+            <button class="control-btn" @click="zoomIn">放大</button>
+            <button class="control-btn" @click="zoomOut">缩小</button>
+            <button class="control-btn" @click="rotateImage">旋转</button>
+            <button class="control-btn" 
+                    @click="downloadImage" 
+                    :disabled="downloading">
+              {{ downloading ? '下载中...' : '下载' }}
+            </button>
+            <button class="control-btn" @click="resetImage">重置</button>
+            <span class="zoom-percent">{{ Math.round(imageScale * 100) }}%</span>
+          </div>
+          <div class="image-hint" v-if="modalData.imageUrl && imageScale > 1">
+            提示：可拖拽图片查看不同区域
+          </div>
+        </div>
         <div class="flaw-details">
           <div class="detail-row">
             <div class="detail-label">缺陷编号:</div>
@@ -398,7 +496,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import * as XLSX from 'xlsx'
 import axios from 'axios'
 
@@ -406,7 +504,7 @@ interface Defect {
   id: number
   defectNo: string | null
   taskName: string | null
-  location: string | null // 具体位置
+  location: string | null
   defectType: string | null
   distance: number | null
   imageUrl: string | null
@@ -424,17 +522,17 @@ interface Defect {
   processStartTime: Date | null
   processEndTime: Date | null
   processResult: string | null
-  description: string | null // 缺陷描述
-  confirmTime: Date | null // 确认时间
-  confirmer: string | null // 确认负责人
-  remark: string | null // 处理过程备注
+  description: string | null
+  confirmTime: Date | null
+  confirmer: string | null
+  remark: string | null
 }
 
 const API_URL = 'http://localhost:8080/api/defects'
 
 const filters = ref({
   taskName: '',
-  location: '', // 具体位置
+  location: '',
   defectType: '',
   isReal: '',
   status: '',
@@ -472,7 +570,22 @@ const currentRemarkId = ref(0)
 const remarkContent = ref('')
 const editingRemark = ref(false)
 
+// 排序相关状态
+const sortField = ref<string>('')
+const sortDirection = ref<'asc' | 'desc'>('asc')
 
+// 图片操作状态
+const imageScale = ref(1)
+const imageRotation = ref(0)
+const imagePosition = ref({ x: 0, y: 0 })
+const isDragging = ref(false)
+const dragStart = ref({ x: 0, y: 0 })
+const downloading = ref(false)
+const isComponentMounted = ref(true)
+
+onUnmounted(() => {
+  isComponentMounted.value = false
+})
 
 // 获取原图URL
 function getImageUrl(imageName: string | null) {
@@ -480,33 +593,75 @@ function getImageUrl(imageName: string | null) {
   return `http://localhost:8080/uploads/workservice/${imageName}`
 }
 
-const pageCount = computed(() => Math.ceil(defects.value.length / pageSize))
-// 跳转页码输入框的值
+// 重置排序
+function resetSort() {
+  sortField.value = ''
+  sortDirection.value = 'asc'
+  currentPage.value = 1
+}
+
+// 排序方法
+function sortBy(field: string) {
+  if (sortField.value === field) {
+    sortDirection.value = sortDirection.value === 'asc' ? 'desc' : 'asc'
+  } else {
+    sortField.value = field
+    sortDirection.value = 'asc'
+  }
+  currentPage.value = 1
+}
+
+// 排序后的数据
+const sortedDefects = computed(() => {
+  if (!sortField.value) {
+    return defects.value
+  }
+
+  return [...defects.value].sort((a, b) => {
+    const field = sortField.value as keyof Defect
+    const valA = a[field]
+    const valB = b[field]
+
+    if (valA === null || valA === undefined) return 1
+    if (valB === null || valB === undefined) return -1
+
+    let comparison = 0
+
+    if (typeof valA === 'string' && typeof valB === 'string') {
+      comparison = valA.localeCompare(valB)
+    } else if (typeof valA === 'number' && typeof valB === 'number') {
+      comparison = valA - valB
+    } else if (typeof valA === 'boolean' && typeof valB === 'boolean') {
+      comparison = (valA === valB) ? 0 : valA ? 1 : -1
+    } else if (valA instanceof Date && valB instanceof Date) {
+      comparison = valA.getTime() - valB.getTime()
+    }
+
+    return sortDirection.value === 'asc' ? comparison : -comparison
+  })
+})
+
+const pageCount = computed(() => Math.ceil(sortedDefects.value.length / pageSize))
 const jumpPage = ref(1)
 
-// 分页显示逻辑
 const displayedPages = computed(() => {
   const pages = []
   const total = pageCount.value
   const current = currentPage.value
-  const maxVisible = 5  // 最多显示的页码数
+  const maxVisible = 5
   
   if (total <= maxVisible) {
-    // 总页数较少时显示所有页码
     for (let i = 1; i <= total; i++) {
       pages.push(i)
     }
   } else {
-    // 计算起始页和结束页
     let start = Math.max(1, current - Math.floor(maxVisible / 2))
     let end = Math.min(total, start + maxVisible - 1)
     
-    // 调整起始页确保显示maxVisible个页码
     if (end - start < maxVisible - 1) {
       start = end - maxVisible + 1
     }
     
-    // 添加第一页和省略号
     if (start > 1) {
       pages.push(1)
       if (start > 2) {
@@ -514,12 +669,10 @@ const displayedPages = computed(() => {
       }
     }
     
-    // 添加中间页码
     for (let i = start; i <= end; i++) {
       pages.push(i)
     }
     
-    // 添加省略号和最后一页
     if (end < total) {
       if (end < total - 1) {
         pages.push('...')
@@ -531,36 +684,9 @@ const displayedPages = computed(() => {
   return pages
 })
 
-// 翻页方法
-function prevPage() {
-  if (currentPage.value > 1) {
-    currentPage.value--
-  }
-}
-
-function nextPage() {
-  if (currentPage.value < pageCount.value) {
-    currentPage.value++
-  }
-}
-
-function goToPage(page: number) {
-  if (page >= 1 && page <= pageCount.value) {
-    currentPage.value = page
-  }
-}
-
-function jumpToPage() {
-  if (jumpPage.value >= 1 && jumpPage.value <= pageCount.value) {
-    currentPage.value = jumpPage.value
-  } else {
-    alert(`请输入有效的页码 (1-${pageCount.value})`)
-  }
-}
-
 const paginatedData = computed(() => {
   const start = (currentPage.value - 1) * pageSize
-  return defects.value.slice(start, start + pageSize)
+  return sortedDefects.value.slice(start, start + pageSize)
 })
 
 function getStatusClass(status: string | null) {
@@ -594,7 +720,6 @@ function formatDate(date: string | Date | null) {
   }
 }
 
-// 辅助函数：格式化日期为YYYY-MM-DD
 function formatDateForInput(date: Date) {
   return date.toISOString().split('T')[0];
 }
@@ -667,7 +792,7 @@ async function loadData() {
     loading.value = true
     const params = {
       taskName: filters.value.taskName.trim(),
-      location: filters.value.location.trim(), // 具体位置
+      location: filters.value.location.trim(),
       defectType: filters.value.defectType.trim(),
       isReal: filters.value.isReal !== '' ? filters.value.isReal === 'true' : undefined,
       status: filters.value.status,
@@ -683,11 +808,8 @@ async function loadData() {
 
     const res = await axios.get(API_URL, { params })
     defects.value = res.data
-    
-    // 重置选择
     selectedIds.value = []
     
-    // 检查当前页码是否超出范围
     const totalPages = Math.ceil(defects.value.length / pageSize)
     if (currentPage.value > totalPages && totalPages > 0) {
       currentPage.value = totalPages
@@ -704,13 +826,14 @@ async function loadData() {
 
 function onSearch() {
   currentPage.value = 1
+  resetSort()
   loadData()
 }
 
 function onReset() {
   filters.value = {
     taskName: '',
-    location: '', // 具体位置
+    location: '',
     defectType: '',
     isReal: '',
     status: '',
@@ -724,12 +847,14 @@ function onReset() {
     processor: ''
   }
   currentPage.value = 1
+  resetSort()
   loadData()
 }
 
 function showImageModal(item: Defect) {
   modalData.value = item
   modalVisible.value = true
+  resetImage() // 每次打开时重置图片状态
 }
 
 function showRemarkModal(item: Defect) {
@@ -785,7 +910,6 @@ async function saveModalRemark() {
     });
     alert('备注保存成功');
     
-    // 更新本地数据
     modalData.value.remark = remarkContent.value;
     const index = defects.value.findIndex(d => d.id === modalData.value.id);
     if (index !== -1) {
@@ -805,10 +929,7 @@ async function confirmReal(item: Defect) {
   
   if (confirm('确认此缺陷属实吗？')) {
     try {
-      // 更新是否属实状态
       await axios.put(`${API_URL}/${item.id}/real?isReal=true`);
-      
-      // 更新确认信息
       await axios.post(`${API_URL}/${item.id}/confirmation?confirmer=${confirmer}`);
       
       alert('确认属实成功');
@@ -822,17 +943,13 @@ async function confirmReal(item: Defect) {
   }
 }
 
-// 开始处理缺陷
 async function startProcessing(item: Defect) {
   const processor = prompt('请输入处理人员姓名：');
   if (!processor) return;
   
   if (confirm('确定要开始处理此缺陷吗？')) {
     try {
-      // 更新处理开始时间和处理人员
       await axios.put(`${API_URL}/${item.id}/start-processing`, { processor });
-      
-      // 更新状态为"处理中"
       await axios.put(`${API_URL}/${item.id}/status?status=处理中`);
       
       alert('已开始处理');
@@ -846,17 +963,13 @@ async function startProcessing(item: Defect) {
   }
 }
 
-// 标记整改完成
 async function markFixed(item: Defect) {
   const processResult = prompt('请输入处理结果：');
-  if (processResult === null) return; // 用户取消
+  if (processResult === null) return;
   
   if (confirm('标记此缺陷已整改？')) {
     try {
-      // 更新处理完成时间和处理结果
       await axios.put(`${API_URL}/${item.id}/complete-processing`, { processResult });
-      
-      // 更新状态为"已整改"
       await axios.put(`${API_URL}/${item.id}/status?status=已整改`);
       
       alert('标记已整改成功');
@@ -889,10 +1002,7 @@ async function batchConfirmReal() {
 
   if (confirm(`确认批量设置 ${selectedIds.value.length} 个缺陷为属实状态吗？`)) {
     try {
-      // 更新是否属实状态
       await axios.put(`${API_URL}/batch/real?isReal=true&ids=${selectedIds.value.join(',')}`);
-      
-      // 更新确认信息
       for (const id of selectedIds.value) {
         await axios.post(`${API_URL}/${id}/confirmation?confirmer=${confirmer}`);
       }
@@ -915,14 +1025,11 @@ async function batchMarkFixed() {
   }
   
   const processResult = prompt('请输入统一的处理结果：');
-  if (processResult === null) return; // 用户取消
+  if (processResult === null) return;
   
   if (confirm(`确认批量设置 ${selectedIds.value.length} 个缺陷为已整改状态吗？`)) {
     try {
-      // 更新状态为"已整改"
       await axios.put(`${API_URL}/batch/status?status=已整改&ids=${selectedIds.value.join(',')}`);
-      
-      // 批量更新处理完成时间和处理结果
       for (const id of selectedIds.value) {
         await axios.put(`${API_URL}/${id}/complete-processing`, { processResult });
       }
@@ -941,67 +1048,119 @@ async function batchMarkFixed() {
 
 function goToTask(taskName: string) {
   alert(`跳转到任务: ${taskName}`);
-  // 实际项目中: router.push(`/tasks/${taskName}`);
 }
 
-const imageScale = ref(1);
-const imageRotation = ref(0);
-const modalImage = ref<HTMLImageElement | null>(null);
-const imageContainer = ref<HTMLDivElement | null>(null);
+// 图片操作功能 - 修复拖拽问题
+function handleWheel(event: WheelEvent) {
+  if (!modalData.value.imageUrl) return
+  event.preventDefault()
+  const delta = Math.sign(event.deltaY) * -0.1
+  zoomImage(delta)
+}
 
-// 放大图片
+function zoomImage(delta: number) {
+  const newScale = Math.max(0.5, Math.min(3, imageScale.value + delta))
+  imageScale.value = parseFloat(newScale.toFixed(1))
+}
+
+function startDrag(event: MouseEvent | TouchEvent) {
+  if (imageScale.value <= 1) return
+  
+  // 关键修复：阻止默认行为，避免出现禁止符号
+  event.preventDefault()
+  
+  isDragging.value = true
+  
+  if (event instanceof MouseEvent) {
+    dragStart.value = { x: event.clientX, y: event.clientY }
+  } else {
+    dragStart.value = { 
+      x: event.touches[0].clientX, 
+      y: event.touches[0].clientY 
+    }
+  }
+  
+  document.addEventListener('mousemove', handleDrag)
+  document.addEventListener('mouseup', stopDrag)
+  document.addEventListener('touchmove', handleDrag, { passive: false })
+  document.addEventListener('touchend', stopDrag)
+}
+
+function handleDrag(event: MouseEvent | TouchEvent) {
+  if (!isDragging.value) return
+  
+  // 关键修复：阻止默认行为
+  event.preventDefault()
+  
+  let clientX, clientY
+  if (event instanceof MouseEvent) {
+    clientX = event.clientX
+    clientY = event.clientY
+  } else {
+    clientX = event.touches[0].clientX
+    clientY = event.touches[0].clientY
+  }
+  
+  const deltaX = clientX - dragStart.value.x
+  const deltaY = clientY - dragStart.value.y
+  dragStart.value = { x: clientX, y: clientY }
+  
+  imagePosition.value.x += deltaX
+  imagePosition.value.y += deltaY
+  updateImagePosition()
+}
+
+function stopDrag() {
+  isDragging.value = false
+  document.removeEventListener('mousemove', handleDrag)
+  document.removeEventListener('mouseup', stopDrag)
+  document.removeEventListener('touchmove', handleDrag)
+  document.removeEventListener('touchend', stopDrag)
+}
+
+function updateImagePosition() {
+  const imageEl = document.querySelector('.image-container img') as HTMLElement
+  if (imageEl) {
+    imageEl.style.transform = `translate(${imagePosition.value.x}px, ${imagePosition.value.y}px) scale(${imageScale.value}) rotate(${imageRotation.value}deg)`
+  }
+}
+
 function zoomIn() {
-  if (imageScale.value < 3) {
-    imageScale.value += 0.1;
-  }
+  zoomImage(0.1)
 }
 
-// 缩小图片
 function zoomOut() {
-  if (imageScale.value > 0.5) {
-    imageScale.value -= 0.1;
-  }
+  zoomImage(-0.1)
 }
 
-// 旋转图片
 function rotateImage() {
-  imageRotation.value = (imageRotation.value + 90) % 360;
+  imageRotation.value = (imageRotation.value + 90) % 360
+  updateImagePosition()
 }
 
-// 重置图片
 function resetImage() {
-  imageScale.value = 1;
-  imageRotation.value = 0;
+  imageScale.value = 1
+  imageRotation.value = 0
+  imagePosition.value = { x: 0, y: 0 }
+  updateImagePosition()
 }
 
-// 下载图片
-const downloading = ref(false);
-
-// 在脚本顶部添加错误类型声明
-type DownloadError = {
-  message: string;
-};
-
-// 更新 downloadImage 函数
 async function downloadImage() {
   if (!modalData.value.imageUrl) {
-    alert('没有可下载的图片');
-    return;
+    alert('没有可下载的图片')
+    return
   }
   
-  if (downloading.value) return;
-  downloading.value = true;
+  if (downloading.value) return
+  downloading.value = true
   
   const imageUrl = getImageUrl(modalData.value.imageUrl);
-  
-  // 使用缺陷编号作为文件名，格式：缺陷编号_时间戳
   const defectId = modalData.value.defectNo || `DEF-${modalData.value.id}`;
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
   const extension = getFileExtension(modalData.value.imageUrl);
   const filename = `${defectId}_${timestamp}.${extension}`;
   
   try {
-    // 使用fetch获取图片（解决跨域问题）
     const response = await fetch(imageUrl);
     if (!response.ok) {
       throw new Error(`图片下载失败: ${response.status} ${response.statusText}`);
@@ -1009,54 +1168,51 @@ async function downloadImage() {
     
     const blob = await response.blob();
     const url = URL.createObjectURL(blob);
-    
-    // 创建下载链接
     const link = document.createElement('a');
     link.href = url;
     link.download = filename;
     document.body.appendChild(link);
     link.click();
     
-    // 清理资源
     setTimeout(() => {
+      if (!isComponentMounted.value) return;
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
     }, 100);
     
-    // 添加成功提示
     setTimeout(() => {
+      if (!isComponentMounted.value) return;
       alert(`图片已保存为: ${filename}`);
     }, 300);
     
   } catch (err) {
-    // 安全处理错误类型
+    if (!isComponentMounted.value) return;
     const error = err as Error;
     console.error('下载失败:', error);
     alert(`图片下载失败: ${error.message || '未知错误'}`);
   } finally {
-    downloading.value = false;
+    if (isComponentMounted.value) {
+      downloading.value = false;
+    }
   }
 }
 
-// 获取文件扩展名
 function getFileExtension(filename: string): string {
   const parts = filename.split('.');
   if (parts.length > 1) {
     const ext = parts.pop()?.toLowerCase() || '';
-    // 只允许图片扩展名
     if (['jpg', 'jpeg', 'png', 'gif', 'bmp'].includes(ext)) {
       return ext;
     }
   }
-  return 'jpg'; // 默认扩展名
+  return 'jpg';
 }
 
-// 在关闭模态框时重置图片状态
 function closeModal() {
   resetImage();
   modalVisible.value = false;
-  // 重置下载状态
   downloading.value = false;
+  isDragging.value = false;
 }
 
 // CSV导出功能
@@ -1122,7 +1278,6 @@ function exportExcel() {
     return
   }
   
-  // 准备数据
   const excelData = defects.value.map((d, index) => ({
     序号: index + 1,
     缺陷编号: d.defectNo || `DEF-${d.id}`,
@@ -1149,15 +1304,37 @@ function exportExcel() {
     上报时间: formatDate(d.reportTime)
   }))
   
-  // 创建工作簿
   const wb = XLSX.utils.book_new()
   const ws = XLSX.utils.json_to_sheet(excelData)
-  
-  // 添加工作表到工作簿
   XLSX.utils.book_append_sheet(wb, ws, '缺陷管理')
-  
-  // 导出文件
   XLSX.writeFile(wb, `缺陷管理_${new Date().toLocaleDateString()}.xlsx`)
+}
+
+// 分页操作
+function prevPage() {
+  if (currentPage.value > 1) {
+    currentPage.value--
+  }
+}
+
+function nextPage() {
+  if (currentPage.value < pageCount.value) {
+    currentPage.value++
+  }
+}
+
+function goToPage(page: number) {
+  if (page >= 1 && page <= pageCount.value) {
+    currentPage.value = page
+  }
+}
+
+function jumpToPage() {
+  if (jumpPage.value >= 1 && jumpPage.value <= pageCount.value) {
+    currentPage.value = jumpPage.value
+  } else {
+    alert(`请输入有效的页码 (1-${pageCount.value})`)
+  }
 }
 
 onMounted(() => {
@@ -1467,22 +1644,81 @@ onMounted(() => {
 
 .modal-image {
   width: 100%;
-  height: 300px;
-  border: 2px solid #333;
-  background: #f0f0f0;
+  margin-bottom: 15px;
+}
+
+.image-container {
+  width: 100%;
+  height: 400px;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: 0 auto;
-  border-radius: 4px;
   overflow: hidden;
   position: relative;
+  background-color: #f5f5f5;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  margin-bottom: 10px;
+  cursor: default;
 }
 
-.modal-image img {
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
+.no-image-hint {
+  color: #999;
+  font-size: 16px;
+}
+
+.image-container img {
+  transition: transform 0.1s;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.image-controls {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  padding: 8px 0;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 4px;
+  width: 100%;
+}
+
+.control-btn {
+  padding: 6px 12px;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.control-btn:hover {
+  background: #f0f0f0;
+  border-color: #ccc;
+}
+
+.control-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.zoom-percent {
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+  font-size: 14px;
+  color: #666;
+}
+
+.image-hint {
+  text-align: center;
+  color: #666;
+  font-size: 12px;
+  padding: 5px;
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 4px;
+  margin-top: 5px;
 }
 
 .close {
@@ -1542,42 +1778,6 @@ onMounted(() => {
   gap: 5px;
 }
 
-.image-controls {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  z-index: 10;
-  display: flex;
-  gap: 5px;
-  background: rgba(255, 255, 255, 0.7);
-  padding: 5px;
-  border-radius: 4px;
-}
-
-.control-btn {
-  padding: 5px 10px;
-  background: #fff;
-  border: 1px solid #ccc;
-  border-radius: 3px;
-  cursor: pointer;
-  font-size: 12px;
-}
-
-.control-btn:hover {
-  background: #f0f0f0;
-}
-
-.image-container {
-  width: 100%;
-  height: 300px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  position: relative;
-}
-
-/* 新增快速筛选按钮样式 */
 .quick-filters {
   display: flex;
   gap: 10px;
@@ -1667,7 +1867,29 @@ onMounted(() => {
   padding: 5px 10px;
 }
 
-/* 响应式设计 */
+.sortable {
+  cursor: pointer;
+  position: relative;
+  padding-right: 20px !important;
+}
+
+.sortable:hover {
+  background-color: #e0e0e0;
+}
+
+.sortable span {
+  position: absolute;
+  right: 5px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 12px;
+}
+
+.arrow-up, .arrow-down {
+  font-size: 12px;
+  margin-left: 3px;
+}
+
 @media (max-width: 1200px) {
   .search-form {
     flex-direction: column;
