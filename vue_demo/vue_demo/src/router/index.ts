@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import type { RouteRecordRaw } from 'vue-router'
 import SystemManagement from '@/views/SystemManagement.vue'
+import DefectManagement from '@/views/DefectManagement.vue'
 
 // 定义路由元信息类型
 declare module 'vue-router' {
@@ -96,6 +97,16 @@ const routes : RouteRecordRaw[] = [
 		},
 		redirect: '/system/user',
 		children: systemRoutes
+	},
+	{
+		path: '/defect',
+		name: 'DefectManagement',
+		component: DefectManagement,
+		meta: {
+			title: '缺陷管理',
+			requiresAuth: true,
+			permissions: ['defect:view']
+		}
 	}
 ]
 
