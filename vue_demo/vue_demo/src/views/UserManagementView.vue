@@ -6,15 +6,20 @@
         <input v-model="searchParams.username" type="text" placeholder="请输入用户名称">
       </div>
       <div class="form-item">
+        <label>姓名</label>
+        <input v-model="searchParams.name" type="text" placeholder="请输入姓名">
+      </div>
+      <div class="form-item">
         <label>手机号码</label>
         <input v-model="searchParams.phone" type="text" placeholder="请输入手机号码">
       </div>
       <div class="form-item">
         <label>状态</label>
         <select v-model="searchParams.status">
-          <option value="">用户状态</option>
+          <option value="">全部</option>
           <option value="0">正常</option>
           <option value="1">停用</option>
+          <option value="2">锁定</option>
         </select>
       </div>
       <div class="search-buttons">
@@ -25,10 +30,10 @@
     
     <div class="toolbar">
       <div class="btn-group">
-        <button class="btn btn-primary" @click="addUser">新增</button>
-        <button class="btn btn-success" @click="editUser">修改</button>
-        <button class="btn btn-danger" @click="deleteUser">删除</button>
-        <button class="btn" @click="importUsers">导入</button>
+        <button class="btn btn-primary" @click="showAddDialog">新增</button>
+        <button class="btn btn-success" :disabled="selectedIds.length !== 1" @click="showEditDialog">修改</button>
+        <button class="btn btn-danger" :disabled="selectedIds.length === 0" @click="batchDelete">删除</button>
+        <button class="btn" @click="showImportDialog">导入</button>
         <button class="btn" @click="exportUsers">导出</button>
       </div>
       <button class="btn" @click="refresh">刷新</button>
@@ -40,7 +45,7 @@
           <th><input type="checkbox" v-model="selectAll" @change="toggleSelectAll"></th>
           <th>用户编号</th>
           <th>用户名称</th>
-          <th>用户昵称</th>
+          <th>姓名</th>
           <th>部门</th>
           <th>手机号码</th>
           <th>状态</th>
@@ -53,20 +58,20 @@
           <td><input type="checkbox" v-model="selectedIds" :value="user.id"></td>
           <td>{{ user.id }}</td>
           <td>{{ user.username }}</td>
-          <td>{{ user.nickname }}</td>
-          <td>{{ user.department }}</td>
+          <td>{{ user.name }}</td>
+          <td>{{ user.departmentName }}</td>
           <td>{{ user.phone }}</td>
           <td>
-            <span class="status-tag" :class="user.status === '0' ? 'status-normal' : 'status-disabled'">
-              {{ user.status === '0' ? '正常' : '停用' }}
+            <span class="status-tag" :class="getStatusClass(user.status)">
+              {{ getStatusText(user.status) }}
             </span>
           </td>
-          <td>{{ user.createTime }}</td>
+          <td>{{ formatDate(user.createTime) }}</td>
           <td>
-            <button class="link" @click="editUser(user.id)">修改</button>
-            <button class="link" @click="deleteUser(user.id)">删除</button>
-            <button class="link" @click="resetPassword(user.id)">重置密码</button>
-            <button class="link" @click="assignRoles(user.id)">分配角色</button>
+            <button class="link" @click="showEditDialog(user.id)">修改</button>
+            <button class="link" @click="confirmDelete(user.id)">删除</button>
+            <button class="link" @click="showResetPasswordDialog(user.id)">重置密码</button>
+            <button class="link" @click="showAssignRolesDialog(user.id)">分配角色</button>
           </td>
         </tr>
       </tbody>
@@ -83,39 +88,181 @@
         {{ page }}
       </span>
     </div>
+
+    <!-- 新增/编辑用户对话框 -->
+    <div class="dialog" v-if="showUserDialog">
+      <div class="dialog-content">
+        <div class="dialog-header">
+          <h3>{{ isEditMode ? '编辑用户' : '新增用户' }}</h3>
+          <button class="close-btn" @click="closeUserDialog">&times;</button>
+        </div>
+        <div class="dialog-body">
+          <div class="form-group">
+            <label>用户名</label>
+            <input v-model="currentUser.username" type="text" :disabled="isEditMode">
+          </div>
+          <div class="form-group">
+            <label>姓名</label>
+            <input v-model="currentUser.name" type="text">
+          </div>
+          <div class="form-group">
+            <label>邮箱</label>
+            <input v-model="currentUser.email" type="email">
+          </div>
+          <div class="form-group">
+            <label>手机号</label>
+            <input v-model="currentUser.phone" type="tel">
+          </div>
+          <div class="form-group">
+            <label>部门</label>
+            <select v-model="currentUser.departmentId">
+              <option v-for="dept in departmentList" :key="dept.id" :value="dept.id">{{ dept.name }}</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>状态</label>
+            <select v-model="currentUser.status">
+              <option value="0">正常</option>
+              <option value="1">停用</option>
+              <option value="2">锁定</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>角色</label>
+            <div class="checkbox-group">
+              <label v-for="role in roleList" :key="role.id">
+                <input type="checkbox" 
+                       v-model="currentUser.roleIds" 
+                       :value="role.id">
+                {{ role.name }}
+              </label>
+            </div>
+          </div>
+        </div>
+        <div class="dialog-footer">
+          <button class="btn btn-primary" @click="saveUser">保存</button>
+          <button class="btn" @click="closeUserDialog">取消</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 重置密码对话框 -->
+    <div class="dialog" v-if="showResetPasswordDialog">
+      <div class="dialog-content">
+        <div class="dialog-header">
+          <h3>重置密码</h3>
+          <button class="close-btn" @click="closeResetPasswordDialog">&times;</button>
+        </div>
+        <div class="dialog-body">
+          <div class="form-group">
+            <label>新密码</label>
+            <input v-model="newPassword" type="password" placeholder="请输入新密码">
+          </div>
+          <div class="form-group">
+            <label>确认密码</label>
+            <input v-model="confirmPassword" type="password" placeholder="请再次输入密码">
+          </div>
+        </div>
+        <div class="dialog-footer">
+          <button class="btn btn-primary" @click="resetPassword">确定</button>
+          <button class="btn" @click="closeResetPasswordDialog">取消</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 分配角色对话框 -->
+    <div class="dialog" v-if="showAssignRolesDialog">
+      <div class="dialog-content">
+        <div class="dialog-header">
+          <h3>分配角色</h3>
+          <button class="close-btn" @click="closeAssignRolesDialog">&times;</button>
+        </div>
+        <div class="dialog-body">
+          <div class="checkbox-group">
+            <label v-for="role in roleList" :key="role.id">
+              <input type="checkbox" 
+                     v-model="selectedRoleIds" 
+                     :value="role.id">
+              {{ role.name }}
+            </label>
+          </div>
+        </div>
+        <div class="dialog-footer">
+          <button class="btn btn-primary" @click="assignRoles">保存</button>
+          <button class="btn" @click="closeAssignRolesDialog">取消</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
+import axios from 'axios';
 
 interface User {
   id: number;
   username: string;
-  nickname: string;
-  department: string;
+  name: string;
+  departmentId: number;
+  departmentName: string;
   phone: string;
+  email: string;
   status: string;
   createTime: string;
+  roleIds: number[];
+}
+
+interface Department {
+  id: number;
+  name: string;
+}
+
+interface Role {
+  id: number;
+  name: string;
 }
 
 const searchParams = ref({
   username: '',
+  name: '',
   phone: '',
   status: '',
 });
 
-const userList = ref<User[]>([
-  { id: 1, username: 'admin', nickname: '超级管理员', department: '系统部门', phone: '15888888888', status: '0', createTime: '2024-01-01 00:00:00' },
-  { id: 2, username: 'zhangsan', nickname: '张三', department: '运维部', phone: '13666666666', status: '0', createTime: '2024-02-15 10:30:00' },
-  { id: 3, username: 'lisi', nickname: '李四', department: '技术部', phone: '13777777777', status: '1', createTime: '2024-03-01 14:20:00' }
-]);
-
+const userList = ref<User[]>([]);
+const departmentList = ref<Department[]>([]);
+const roleList = ref<Role[]>([]);
 const selectedIds = ref<number[]>([]);
 const selectAll = ref(false);
-const totalItems = ref(50);
+const totalItems = ref(0);
 const pageSize = ref(10);
 const currentPage = ref(1);
+
+// 对话框相关状态
+const showUserDialog = ref(false);
+const isEditMode = ref(false);
+const currentUser = ref<User>({
+  id: 0,
+  username: '',
+  name: '',
+  departmentId: 0,
+  departmentName: '',
+  phone: '',
+  email: '',
+  status: '0',
+  createTime: '',
+  roleIds: []
+});
+
+const showResetPasswordDialog = ref(false);
+const resetPasswordUserId = ref(0);
+const newPassword = ref('');
+const confirmPassword = ref('');
+
+const showAssignRolesDialog = ref(false);
+const assignRolesUserId = ref(0);
+const selectedRoleIds = ref<number[]>([]);
 
 const pageNumbers = computed(() => {
   const pages = [];
@@ -136,48 +283,194 @@ const pageNumbers = computed(() => {
   return pages;
 });
 
+onMounted(() => {
+  fetchUsers();
+  fetchDepartments();
+  fetchRoles();
+});
+
+const fetchUsers = async () => {
+  try {
+    const response = await axios.get('/api/users', {
+      params: {
+        ...searchParams.value,
+        page: currentPage.value,
+        size: pageSize.value
+      }
+    });
+    userList.value = response.data;
+    totalItems.value = response.headers['x-total-count'] || response.data.length;
+  } catch (error) {
+    console.error('获取用户列表失败:', error);
+  }
+};
+
+const fetchDepartments = async () => {
+  try {
+    const response = await axios.get('/api/departments');
+    departmentList.value = response.data;
+  } catch (error) {
+    console.error('获取部门列表失败:', error);
+  }
+};
+
+const fetchRoles = async () => {
+  try {
+    const response = await axios.get('/api/roles');
+    roleList.value = response.data;
+  } catch (error) {
+    console.error('获取角色列表失败:', error);
+  }
+};
+
 const search = () => {
-  console.log('搜索用户:', searchParams.value);
+  currentPage.value = 1;
+  fetchUsers();
 };
 
 const reset = () => {
   searchParams.value = {
     username: '',
+    name: '',
     phone: '',
     status: '',
   };
-};
-
-const addUser = () => {
-  console.log('新增用户');
-};
-
-const editUser = (id?: number) => {
-  console.log('修改用户:', id || selectedIds.value);
-};
-
-const deleteUser = (id?: number) => {
-  console.log('删除用户:', id || selectedIds.value);
-};
-
-const importUsers = () => {
-  console.log('导入用户');
-};
-
-const exportUsers = () => {
-  console.log('导出用户');
+  search();
 };
 
 const refresh = () => {
-  console.log('刷新用户列表');
+  fetchUsers();
 };
 
-const resetPassword = (id: number) => {
-  console.log('重置密码:', id);
+const showAddDialog = () => {
+  isEditMode.value = false;
+  currentUser.value = {
+    id: 0,
+    username: '',
+    name: '',
+    departmentId: departmentList.value[0]?.id || 0,
+    departmentName: '',
+    phone: '',
+    email: '',
+    status: '0',
+    createTime: '',
+    roleIds: []
+  };
+  showUserDialog.value = true;
 };
 
-const assignRoles = (id: number) => {
-  console.log('分配角色:', id);
+const showEditDialog = async (userId?: number) => {
+  const id = userId || selectedIds.value[0];
+  if (!id) return;
+
+  try {
+    const response = await axios.get(`/api/users/${id}`);
+    currentUser.value = response.data;
+    isEditMode.value = true;
+    showUserDialog.value = true;
+  } catch (error) {
+    console.error('获取用户信息失败:', error);
+  }
+};
+
+const closeUserDialog = () => {
+  showUserDialog.value = false;
+};
+
+const saveUser = async () => {
+  try {
+    if (isEditMode.value) {
+      await axios.put(`/api/users/${currentUser.value.id}`, currentUser.value);
+    } else {
+      await axios.post('/api/users', currentUser.value);
+    }
+    closeUserDialog();
+    fetchUsers();
+  } catch (error) {
+    console.error('保存用户失败:', error);
+  }
+};
+
+const confirmDelete = (userId: number) => {
+  if (confirm('确定要删除该用户吗？')) {
+    deleteUser(userId);
+  }
+};
+
+const deleteUser = async (userId: number) => {
+  try {
+    await axios.delete(`/api/users/${userId}`);
+    fetchUsers();
+  } catch (error) {
+    console.error('删除用户失败:', error);
+  }
+};
+
+const batchDelete = async () => {
+  if (selectedIds.value.length === 0) return;
+  if (!confirm(`确定要删除选中的 ${selectedIds.value.length} 个用户吗？`)) return;
+
+  try {
+    await Promise.all(selectedIds.value.map(id => axios.delete(`/api/users/${id}`)));
+    selectedIds.value = [];
+    fetchUsers();
+  } catch (error) {
+    console.error('批量删除用户失败:', error);
+  }
+};
+
+const showResetPasswordDialog = (userId: number) => {
+  resetPasswordUserId.value = userId;
+  newPassword.value = '';
+  confirmPassword.value = '';
+  showResetPasswordDialog.value = true;
+};
+
+const closeResetPasswordDialog = () => {
+  showResetPasswordDialog.value = false;
+};
+
+const resetPassword = async () => {
+  if (newPassword.value !== confirmPassword.value) {
+    alert('两次输入的密码不一致');
+    return;
+  }
+
+  try {
+    await axios.put(`/api/users/${resetPasswordUserId.value}/password`, null, {
+      params: { password: newPassword.value }
+    });
+    closeResetPasswordDialog();
+    alert('密码重置成功');
+  } catch (error) {
+    console.error('重置密码失败:', error);
+  }
+};
+
+const showAssignRolesDialog = async (userId: number) => {
+  assignRolesUserId.value = userId;
+  try {
+    const response = await axios.get(`/api/users/${userId}`);
+    selectedRoleIds.value = response.data.roleIds || [];
+    showAssignRolesDialog.value = true;
+  } catch (error) {
+    console.error('获取用户角色失败:', error);
+  }
+};
+
+const closeAssignRolesDialog = () => {
+  showAssignRolesDialog.value = false;
+};
+
+const assignRoles = async () => {
+  try {
+    const user = { ...currentUser.value, roleIds: selectedRoleIds.value };
+    await axios.put(`/api/users/${assignRolesUserId.value}`, user);
+    closeAssignRolesDialog();
+    fetchUsers();
+  } catch (error) {
+    console.error('分配角色失败:', error);
+  }
 };
 
 const toggleSelectAll = () => {
@@ -190,143 +483,122 @@ const toggleSelectAll = () => {
 
 const changePage = (page: number) => {
   currentPage.value = page;
-  console.log('切换到页码:', page);
+  fetchUsers();
+};
+
+const getStatusText = (status: string) => {
+  switch (status) {
+    case '0': return '正常';
+    case '1': return '停用';
+    case '2': return '锁定';
+    default: return '未知';
+  }
+};
+
+const getStatusClass = (status: string) => {
+  switch (status) {
+    case '0': return 'status-normal';
+    case '1': return 'status-disabled';
+    case '2': return 'status-locked';
+    default: return '';
+  }
+};
+
+const formatDate = (dateString: string) => {
+  if (!dateString) return '';
+  const date = new Date(dateString);
+  return date.toLocaleString();
 };
 </script>
 
 <style scoped>
-.search-form {
+/* 原有样式保持不变 */
+
+.dialog {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
   display: flex;
-  gap: 15px;
-  margin-bottom: 20px;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.dialog-content {
+  background-color: white;
+  border-radius: 5px;
+  width: 600px;
+  max-width: 90%;
+  max-height: 90%;
+  overflow-y: auto;
+}
+
+.dialog-header {
   padding: 15px;
-  border: 1px solid #666;
-  background: #f8f8f8;
-  flex-wrap: wrap;
-}
-
-.form-item {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-
-.form-item label {
-  font-weight: bold;
-  font-size: 12px;
-}
-
-.form-item input,
-.form-item select {
-  border: 1px solid #999;
-  padding: 8px;
-  width: 120px;
-}
-
-.search-buttons {
-  display: flex;
-  gap: 10px;
-  align-items: end;
-}
-
-.btn {
-  border: 1px solid #333;
-  padding: 8px 15px;
-  background: #f0f0f0;
-  cursor: pointer;
-}
-
-.btn-primary {
-  background: #e6f3ff;
-}
-
-.btn-success {
-  background: #d4edda;
-}
-
-.btn-danger {
-  background: #f8d7da;
-}
-
-.toolbar {
+  border-bottom: 1px solid #eee;
   display: flex;
   justify-content: space-between;
-  margin-bottom: 15px;
-  padding: 10px;
-  border: 1px solid #666;
-  background: #f8f8f8;
+  align-items: center;
 }
 
-.btn-group {
+.dialog-header h3 {
+  margin: 0;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.dialog-body {
+  padding: 15px;
+}
+
+.dialog-footer {
+  padding: 15px;
+  border-top: 1px solid #eee;
+  text-align: right;
+}
+
+.form-group {
+  margin-bottom: 15px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: bold;
+}
+
+.form-group input,
+.form-group select {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.checkbox-group {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
 }
 
-.table {
-  width: 100%;
-  border-collapse: collapse;
-  border: 1px solid #666;
-}
-
-.table th,
-.table td {
-  border: 1px solid #ccc;
-  padding: 10px;
-  text-align: left;
-}
-
-.table th {
-  background: #f0f0f0;
-  font-weight: bold;
-}
-
-.table tbody tr:nth-child(even) {
-  background: #f9f9f9;
-}
-
-.link {
-  color: #0066cc;
-  text-decoration: underline;
-  cursor: pointer;
-  margin-right: 10px;
-  background: none;
-  border: none;
-  padding: 0;
-}
-
-.status-tag {
-  padding: 4px 8px;
-  border-radius: 3px;
-  font-size: 12px;
-  display: inline-block;
-}
-
-.status-normal {
-  background: #d4edda;
-  color: #155724;
-  border: 1px solid #c3e6cb;
-}
-
-.status-disabled {
-  background: #f8d7da;
-  color: #721c24;
-  border: 1px solid #f5c6cb;
-}
-
-.pagination {
-  margin-top: 20px;
-  text-align: right;
-  border: 1px solid #666;
-  padding: 10px;
-  background: #f8f8f8;
-}
-
-.pagination span {
-  margin: 0 5px;
+.checkbox-group label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
   cursor: pointer;
 }
 
-.pagination span.active {
-  font-weight: bold;
+.status-locked {
+  background: #fff3cd;
+  color: #856404;
+  border: 1px solid #ffeeba;
 }
 </style>
