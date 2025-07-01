@@ -58,7 +58,6 @@
 import { ref } from 'vue';
 import UserManagementView from './UserManagementView.vue';
 import RoleManagementView from './RoleManagementView.vue';
-import MenuManagementView from './MenuManagementView.vue';
 import DeptManagementView from './DeptManagementView.vue';
 import ConfigManagementView from './ConfigManagementView.vue';
 
