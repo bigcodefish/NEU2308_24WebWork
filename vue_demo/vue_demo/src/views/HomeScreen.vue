@@ -1,5 +1,7 @@
 <template>
+
 	<!-- 模拟数据 -->
+
 	<div class="dashboard-container">
 		<div class="wireframe">
 			<div class="header">
@@ -44,7 +46,7 @@
 
 					<div class="card">
 						<div class="card-title">缺陷类型统计</div>
-						<div class="chart-area">饼状图 - 缺陷类型分布</div>
+						<div class="chart-area" ref="pieChart" style="height: 100%; min-height: 200px;"></div>
 					</div>
 
 					<div class="card">
@@ -85,15 +87,15 @@
 						<div class="card-title">缺陷数据统计</div>
 						<div class="stats-grid">
 							<div class="stat-item">
-								<div class="stat-number">456</div>
+								<div class="stat-number">{{ defectStats.totalDefects || 0 }}</div>
 								<div class="stat-label">累计缺陷数</div>
 							</div>
 							<div class="stat-item">
-								<div class="stat-number">321</div>
+								<div class="stat-number">{{ defectStats.confirmedDefects || 0 }}</div>
 								<div class="stat-label">确认缺陷数</div>
 							</div>
 							<div class="stat-item">
-								<div class="stat-number">135</div>
+								<div class="stat-number">{{ defectStats.falseDefects || 0 }}</div>
 								<div class="stat-label">误报缺陷数</div>
 							</div>
 						</div>
@@ -115,11 +117,122 @@
 </template>
 
 <script setup lang="ts">
-	import router from '@/router';
+	import { ref, onMounted, nextTick } from 'vue'
+	import router from '@/router'
+	import axios from 'axios'
+	import * as echarts from 'echarts'
+
+	const API_URL = 'http://localhost:8080/api/defects'
+
+	// 缺陷统计
+	const defectStats = ref({
+		totalDefects: 0,
+		confirmedDefects: 0,
+		falseDefects: 0
+	})
+
+	// 缺陷类型数据
+	const defectTypes = ref<{ type : string; count : number }[]>([])
+	const pieChart = ref<HTMLElement | null>(null)
 
 	const enterSystem = () => {
-		router.push('/system');
+		router.push('/system')
 	}
+
+	// 获取缺陷统计数据
+	const fetchDefectStats = async () => {
+		try {
+			const res = await axios.get(`${API_URL}/stats`)
+			defectStats.value = res.data
+		} catch (e) {
+			console.error('获取缺陷统计数据失败', e)
+		}
+	}
+
+	// 获取缺陷类型统计数据
+	const fetchDefectTypeStats = async () => {
+		try {
+			const res = await axios.get(`${API_URL}/type-stats`)
+			defectTypes.value = res.data.map((item : any) => ({
+				type: item.defectType,
+				count: item.count
+			}))
+
+			// 数据获取后渲染图表
+			renderPieChart()
+		} catch (e) {
+			console.error('获取缺陷类型统计数据失败', e)
+		}
+	}
+
+	// 渲染饼图
+	const renderPieChart = () => {
+		if (!pieChart.value || defectTypes.value.length === 0) return
+
+		// 初始化ECharts实例
+		const chart = echarts.init(pieChart.value)
+
+		// 配置项
+		const option = {
+			tooltip: {
+				trigger: 'item',
+				formatter: '{a} <br/>{b}: {c} ({d}%)'
+			},
+			legend: {
+				orient: 'horizontal',
+				bottom: 10,
+				data: defectTypes.value.map(item => item.type)
+			},
+			series: [
+				{
+					name: '缺陷类型分布',
+					type: 'pie',
+					radius: ['40%', '70%'],
+					avoidLabelOverlap: false,
+					itemStyle: {
+						borderRadius: 10,
+						borderColor: '#000',
+						borderWidth: 2
+					},
+					label: {
+						show: false,
+						position: 'center'
+					},
+					emphasis: {
+						label: {
+							show: true,
+							fontSize: '18',
+							fontWeight: 'bold'
+						}
+					},
+					labelLine: {
+						show: false
+					},
+					data: defectTypes.value.map(item => ({
+						value: item.count,
+						name: item.type
+					}))
+				}
+			],
+			color: [
+				'#5470c6', '#91cc75', '#fac858', '#ee6666', '#73c0de',
+				'#3ba272', '#fc8452', '#9a60b4', '#ea7ccc', '#2ec7c9'
+			]
+		}
+
+		// 设置配置项并渲染图表
+		chart.setOption(option)
+
+		// 响应窗口大小变化
+		window.addEventListener('resize', () => {
+			chart.resize()
+		})
+	}
+
+	onMounted(() => {
+		fetchDefectStats()
+		fetchDefectTypeStats()
+	})
 </script>
 
 <style scoped>
