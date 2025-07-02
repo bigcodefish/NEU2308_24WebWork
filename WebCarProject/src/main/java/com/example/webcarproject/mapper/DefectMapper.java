@@ -112,5 +112,14 @@ public interface DefectMapper {
 
     @Select("SELECT defect_type AS defectType, COUNT(*) AS count FROM defect_info GROUP BY defect_type")
     List<Map<String, Object>> getDefectTypeStats();
-    
+
+
+
+    @Select("SELECT TO_CHAR(report_time, 'YYYY-MM') AS month, COUNT(*) AS count " +
+            "FROM defect_info " +
+            "WHERE report_time >= NOW() - INTERVAL '1 year' " +
+            "GROUP BY TO_CHAR(report_time, 'YYYY-MM') " +
+            "ORDER BY month")
+    List<Map<String, Object>> getMonthlyDefectStats();
+
 }
