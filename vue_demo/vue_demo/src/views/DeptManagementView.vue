@@ -1,280 +1,254 @@
 <template>
   <div class="dept-management">
+    <!-- 搜索区域 -->
     <div class="search-form">
-      <div class="form-item">
-        <label>部门名称</label>
-        <input v-model="searchParams.name" type="text" placeholder="请输入部门名称">
-      </div>
-      <div class="form-item">
-        <label>状态</label>
-        <select v-model="searchParams.status">
-          <option value="">全部</option>
-          <option value="0">正常</option>
-          <option value="1">停用</option>
-        </select>
-      </div>
-      <div class="search-buttons">
-        <button class="btn btn-primary" @click="search">搜索</button>
-        <button class="btn" @click="reset">重置</button>
-        <button class="btn" @click="toggleExpand">{{ isExpanded ? '折叠' : '展开' }}</button>
-      </div>
+      <el-form :inline="true" :model="searchParams">
+        <el-form-item label="部门名称">
+          <el-input v-model="searchParams.name" placeholder="请输入部门名称" clearable />
+        </el-form-item>
+        <el-form-item label="部门编码">
+          <el-input v-model="searchParams.code" placeholder="请输入部门编码" clearable />
+        </el-form-item>
+        <el-form-item label="状态">
+          <el-select v-model="searchParams.status" placeholder="请选择状态" clearable>
+            <el-option label="正常" value="0" />
+            <el-option label="停用" value="1" />
+          </el-select>
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" @click="handleSearch">搜索</el-button>
+          <el-button @click="handleReset">重置</el-button>
+        </el-form-item>
+      </el-form>
     </div>
-    
-    <div class="toolbar">
-      <div class="btn-group">
-        <button class="btn btn-primary" @click="addDept">新增</button>
-        <button class="btn btn-success" @click="editDept">修改</button>
-        <button class="btn btn-danger" @click="deleteDept">删除</button>
-      </div>
-      <button class="btn" @click="refresh">刷新</button>
+
+    <!-- 操作按钮 -->
+    <div class="operation-buttons">
+      <el-button type="primary" @click="handleAdd">
+        <el-icon><Plus /></el-icon>新增部门
+      </el-button>
+      <el-button @click="refreshTree">
+        <el-icon><Refresh /></el-icon>刷新
+      </el-button>
     </div>
-    
-    <div class="tree-view">
-      <div 
-        v-for="dept in depts" 
-        :key="dept.id"
-        class="tree-node"
-        :class="{ 
-          parent: !dept.parentId, 
-          child: dept.parentId,
-          'd-none': !isExpanded && dept.parentId
-        }"
+
+    <!-- 部门树 -->
+    <div class="tree-container">
+      <el-tree
+        :data="deptTreeData"
+        :props="treeProps"
+        node-key="id"
+        highlight-current
+        @node-click="handleNodeClick"
       >
-        {{ dept.type === 'company' ? '🏢' : '🏬' }} {{ dept.name }}
-        <span style="float: right;">
-          <button class="link" @click="editDept(dept.id)">修改</button>
-          <button class="link" @click="addSubDept(dept.id)">新增</button>
-          <button class="link" @click="deleteDept(dept.id)">删除</button>
-        </span>
-      </div>
+        <template #default="{ node, data }">
+          <span class="custom-tree-node">
+            <span>{{ data.name }}</span>
+            <span class="tree-actions">
+              <el-button link type="primary" @click.stop="handleAddSub(data.id)">
+                <el-icon><FolderAdd /></el-icon>添加子部门
+              </el-button>
+            </span>
+          </span>
+        </template>
+      </el-tree>
     </div>
+
+    <!-- 新增/编辑对话框 -->
+    <el-dialog v-model="dialogVisible" :title="dialogTitle" width="50%">
+      <el-form :model="formData" label-width="100px">
+        <el-form-item label="部门名称" prop="name">
+          <el-input v-model="formData.name" />
+        </el-form-item>
+        <el-form-item label="部门编码" prop="code">
+          <el-input v-model="formData.code" />
+        </el-form-item>
+        <el-form-item label="上级部门">
+          <el-select v-model="formData.parentId" clearable placeholder="请选择">
+            <el-option
+              v-for="item in deptOptions"
+              :key="item.id"
+              :label="item.name"
+              :value="item.id"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item>
+          <el-button @click="dialogVisible = false">取消</el-button>
+          <el-button type="primary" @click="submitForm">确定</el-button>
+        </el-form-item>
+      </el-form>
+    </el-dialog>
   </div>
 </template>
 
-<script setup lang="ts">
-import { ref } from 'vue';
+<script setup>
+import { ref, onMounted } from 'vue'
+import axios from 'axios'
+import { ElMessage } from 'element-plus'
+import { Plus, Refresh, FolderAdd } from '@element-plus/icons-vue'
 
-interface Dept {
-  id: number;
-  name: string;
-  type: 'company' | 'department';
-  parentId: number | null;
-  status: string;
+// API客户端配置（关键修正）
+const apiClient = axios.create({
+  baseURL: 'http://localhost:8080/api', // 确保包含/api前缀
+  timeout: 5000,
+  headers: {
+    'Content-Type': 'application/json'
+  }
+})
+
+// 类型定义
+const Department = {
+  id: Number,
+  name: String,
+  code: String,
+  parentId: Number,
+  status: String
 }
 
+// 状态管理
+const deptTreeData = ref([])
 const searchParams = ref({
   name: '',
-  status: '',
-});
+  code: '',
+  status: ''
+})
+const dialogVisible = ref(false)
+const dialogTitle = ref('新增部门')
+const formData = ref({
+  id: null,
+  name: '',
+  code: '',
+  parentId: null,
+  status: '0'
+})
+const deptOptions = ref([])
+const treeProps = {
+  label: 'name',
+  children: 'children'
+}
 
-const depts = ref<Dept[]>([
-  { id: 1, name: '集团总部', type: 'company', parentId: null, status: '0' },
-  { id: 2, name: '技术部', type: 'department', parentId: 1, status: '0' },
-  { id: 3, name: '运维部', type: 'department', parentId: 1, status: '0' },
-  { id: 4, name: '管理部', type: 'department', parentId: 1, status: '0' },
-  { id: 5, name: '财务部', type: 'department', parentId: 1, status: '0' }
-]);
+// 方法定义
+const fetchDeptTree = async () => {
+  try {
+    const response = await apiClient.get('/departments/tree')
+    deptTreeData.value = response.data || []
+  } catch (error) {
+    ElMessage.error('获取部门树失败: ' + error.message)
+    console.error('API Error:', error)
+  }
+}
 
-const isExpanded = ref(true);
+const fetchDeptOptions = async () => {
+  try {
+    const response = await apiClient.get('/departments')
+    deptOptions.value = response.data || []
+  } catch (error) {
+    ElMessage.error('获取部门选项失败')
+  }
+}
 
-const search = () => {
-  console.log('搜索部门:', searchParams.value);
-};
+const handleSearch = () => {
+  fetchDeptTree()
+}
 
-const reset = () => {
-  searchParams.value = {
+const handleReset = () => {
+  searchParams.value = { name: '', code: '', status: '' }
+  fetchDeptTree()
+}
+
+const refreshTree = () => {
+  fetchDeptTree()
+}
+
+const handleNodeClick = (data) => {
+  console.log('选中部门:', data)
+}
+
+const handleAdd = () => {
+  dialogTitle.value = '新增部门'
+  formData.value = {
+    id: null,
     name: '',
-    status: '',
-  };
-};
+    code: '',
+    parentId: null,
+    status: '0'
+  }
+  dialogVisible.value = true
+}
 
-const addDept = () => {
-  console.log('新增部门');
-};
+const handleAddSub = (parentId) => {
+  dialogTitle.value = '新增子部门'
+  formData.value = {
+    id: null,
+    name: '',
+    code: '',
+    parentId: parentId,
+    status: '0'
+  }
+  dialogVisible.value = true
+}
 
-const addSubDept = (parentId: number) => {
-  console.log('新增子部门，父部门ID:', parentId);
-};
+const submitForm = async () => {
+  try {
+    if (formData.value.id) {
+      await apiClient.put(`/departments/${formData.value.id}`, formData.value)
+      ElMessage.success('更新成功')
+    } else {
+      await apiClient.post('/departments', formData.value)
+      ElMessage.success('新增成功')
+    }
+    dialogVisible.value = false
+    fetchDeptTree()
+  } catch (error) {
+    ElMessage.error('操作失败: ' + error.response?.data?.message || error.message)
+  }
+}
 
-const editDept = (id: number) => {
-  console.log('修改部门:', id);
-};
-
-const deleteDept = (id: number) => {
-  console.log('删除部门:', id);
-};
-
-const refresh = () => {
-  console.log('刷新部门列表');
-};
-
-const toggleExpand = () => {
-  isExpanded.value = !isExpanded.value;
-};
+// 生命周期钩子
+onMounted(() => {
+  fetchDeptTree()
+  fetchDeptOptions()
+})
 </script>
 
 <style scoped>
-.tree-view {
-  border: 1px solid #666;
-  background: #f9f9f9;
-  padding: 15px;
-  max-height: 400px;
-  overflow-y: auto;
-}
-
-.tree-node {
-  margin: 5px 0;
-  padding: 5px;
-  border: 1px solid #ddd;
-  background: white;
-}
-
-.tree-node.parent {
-  font-weight: bold;
-  background: #e6f3ff;
-}
-
-.tree-node.child {
-  margin-left: 30px;
-  background: #f8f9fa;
-}
-
-.d-none {
-  display: none;
+.dept-management {
+  padding: 20px;
 }
 
 .search-form {
-  display: flex;
-  gap: 15px;
   margin-bottom: 20px;
-  padding: 15px;
-  border: 1px solid #666;
-  background: #f8f8f8;
-  flex-wrap: wrap;
+  padding: 20px;
+  background: #f5f7fa;
+  border-radius: 4px;
 }
 
-.form-item {
+.operation-buttons {
+  margin-bottom: 20px;
+}
+
+.tree-container {
+  border: 1px solid #ebeef5;
+  border-radius: 4px;
+  padding: 20px;
+  background: #fff;
+}
+
+.custom-tree-node {
+  flex: 1;
   display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-
-.form-item label {
-  font-weight: bold;
-  font-size: 12px;
-}
-
-.form-item input,
-.form-item select {
-  border: 1px solid #999;
-  padding: 8px;
-  width: 120px;
-}
-
-.search-buttons {
-  display: flex;
-  gap: 10px;
-  align-items: end;
-}
-
-.btn {
-  border: 1px solid #333;
-  padding: 8px 15px;
-  background: #f0f0f0;
-  cursor: pointer;
-}
-
-.btn-primary {
-  background: #e6f3ff;
-}
-
-.btn-success {
-  background: #d4edda;
-}
-
-.btn-danger {
-  background: #f8d7da;
-}
-
-.toolbar {
-  display: flex;
+  align-items: center;
   justify-content: space-between;
-  margin-bottom: 15px;
-  padding: 10px;
-  border: 1px solid #666;
-  background: #f8f8f8;
+  font-size: 14px;
+  padding-right: 8px;
 }
 
-.btn-group {
-  display: flex;
-  gap: 10px;
+.tree-actions {
+  visibility: hidden;
 }
 
-.table {
-  width: 100%;
-  border-collapse: collapse;
-  border: 1px solid #666;
-}
-
-.table th,
-.table td {
-  border: 1px solid #ccc;
-  padding: 10px;
-  text-align: left;
-}
-
-.table th {
-  background: #f0f0f0;
-  font-weight: bold;
-}
-
-.table tbody tr:nth-child(even) {
-  background: #f9f9f9;
-}
-
-.link {
-  color: #0066cc;
-  text-decoration: underline;
-  cursor: pointer;
-  margin-right: 10px;
-  background: none;
-  border: none;
-  padding: 0;
-}
-
-.status-tag {
-  padding: 4px 8px;
-  border-radius: 3px;
-  font-size: 12px;
-  display: inline-block;
-}
-
-.status-normal {
-  background: #d4edda;
-  color: #155724;
-  border: 1px solid #c3e6cb;
-}
-
-.status-disabled {
-  background: #f8d7da;
-  color: #721c24;
-  border: 1px solid #f5c6cb;
-}
-
-.pagination {
-  margin-top: 20px;
-  text-align: right;
-  border: 1px solid #666;
-  padding: 10px;
-  background: #f8f8f8;
-}
-
-.pagination span {
-  margin: 0 5px;
-  cursor: pointer;
-}
-
-.pagination span.active {
-  font-weight: bold;
+.el-tree-node__content:hover .tree-actions {
+  visibility: visible;
 }
 </style>

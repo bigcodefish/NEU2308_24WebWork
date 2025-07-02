@@ -9,6 +9,12 @@ import java.util.List;
 @Mapper
 public interface UserMapper {
 
+    @Select("SELECT id, username, password, name, email, phone, department_id as departmentId, " +
+            "status, create_time as createTime " +
+            "FROM user_info " +
+            "ORDER BY id ASC")
+    List<User> selectAll();
+
     @Select("<script>" +
             "SELECT u.*, d.name as department_name FROM user_info u " +
             "LEFT JOIN department_info d ON u.department_id = d.id " +
@@ -38,7 +44,7 @@ public interface UserMapper {
 
     @Insert("INSERT INTO user_info(username, password, name, email, phone, department_id, status, create_time) " +
             "VALUES(#{username}, #{password}, #{name}, #{email}, #{phone}, #{departmentId}, #{status}, #{createTime})")
-    @Options(useGeneratedKeys = true, keyProperty = "id")
+    @Options(useGeneratedKeys = true, keyProperty = "id", keyColumn = "id") // 明确指定主键列
     int insert(User user);
 
     @Update("UPDATE user_info SET " +

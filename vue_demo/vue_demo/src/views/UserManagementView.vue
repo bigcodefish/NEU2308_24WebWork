@@ -4,23 +4,48 @@
     <div class="search-form">
       <div class="form-item">
         <label>用户名</label>
-        <el-input v-model="searchParams.username" placeholder="请输入用户名" clearable />
+        <el-input 
+          v-model="searchParams.username" 
+          placeholder="请输入用户名" 
+          clearable 
+          @keyup.enter="handleSearch"
+        />
       </div>
       <div class="form-item">
         <label>姓名</label>
-        <el-input v-model="searchParams.name" placeholder="请输入姓名" clearable />
+        <el-input 
+          v-model="searchParams.name" 
+          placeholder="请输入姓名" 
+          clearable 
+          @keyup.enter="handleSearch"
+        />
       </div>
       <div class="form-item">
         <label>手机号</label>
-        <el-input v-model="searchParams.phone" placeholder="请输入手机号" clearable />
+        <el-input 
+          v-model="searchParams.phone" 
+          placeholder="请输入手机号" 
+          clearable 
+          @keyup.enter="handleSearch"
+        />
       </div>
       <div class="form-item">
         <label>邮箱</label>
-        <el-input v-model="searchParams.email" placeholder="请输入邮箱" clearable />
+        <el-input 
+          v-model="searchParams.email" 
+          placeholder="请输入邮箱" 
+          clearable 
+          @keyup.enter="handleSearch"
+        />
       </div>
       <div class="form-item">
         <label>状态</label>
-        <el-select v-model="searchParams.status" placeholder="请选择状态" clearable>
+        <el-select 
+          v-model="searchParams.status" 
+          placeholder="请选择状态" 
+          clearable
+          style="width: 100%"
+        >
           <el-option label="正常" value="0" />
           <el-option label="禁用" value="1" />
           <el-option label="锁定" value="2" />
@@ -28,7 +53,13 @@
       </div>
       <div class="form-item">
         <label>部门</label>
-        <el-select v-model="searchParams.departmentId" placeholder="请选择部门" clearable>
+        <el-select 
+          v-model="searchParams.departmentId" 
+          placeholder="请选择部门" 
+          clearable
+          style="width: 100%"
+          filterable
+        >
           <el-option
             v-for="dept in departmentOptions"
             :key="dept.id"
@@ -37,45 +68,53 @@
           />
         </el-select>
       </div>
-      <div class="form-item">
+      <div class="form-item date-range">
         <label>创建时间</label>
-        <el-date-picker
-          v-model="searchParams.startTime"
-          type="date"
-          placeholder="开始日期"
-          value-format="YYYY-MM-DD"
-        />
-        <span style="margin: 0 5px">至</span>
-        <el-date-picker
-          v-model="searchParams.endTime"
-          type="date"
-          placeholder="结束日期"
-          value-format="YYYY-MM-DD"
-        />
+        <div class="date-picker-group">
+          <el-date-picker
+            v-model="searchParams.startTime"
+            type="date"
+            placeholder="开始日期"
+            value-format="YYYY-MM-DD"
+            :clearable="false"
+          />
+          <span class="date-separator">至</span>
+          <el-date-picker
+            v-model="searchParams.endTime"
+            type="date"
+            placeholder="结束日期"
+            value-format="YYYY-MM-DD"
+            :clearable="false"
+          />
+        </div>
       </div>
       <div class="search-buttons">
-        <el-button type="primary" @click="handleSearch">搜索</el-button>
-        <el-button @click="handleReset">重置</el-button>
+        <el-button type="primary" @click="handleSearch" :icon="Search">搜索</el-button>
+        <el-button @click="handleReset" :icon="RefreshLeft">重置</el-button>
       </div>
     </div>
 
     <!-- 操作按钮区域 -->
     <div class="operation-buttons">
-      <el-button type="primary" @click="handleAdd">
-        <el-icon><Plus /></el-icon>新增
+      <el-button type="primary" @click="handleAdd" :icon="Plus">新增</el-button>
+      <el-button 
+        type="success" 
+        :disabled="selectedRows.length !== 1" 
+        @click="handleEdit"
+        :icon="Edit"
+      >
+        修改
       </el-button>
-      <el-button type="success" :disabled="selectedRows.length !== 1" @click="handleEdit">
-        <el-icon><Edit /></el-icon>修改
+      <el-button 
+        type="danger" 
+        :disabled="selectedRows.length === 0" 
+        @click="handleBatchDelete"
+        :icon="Delete"
+      >
+        删除
       </el-button>
-      <el-button type="danger" :disabled="selectedRows.length === 0" @click="handleBatchDelete">
-        <el-icon><Delete /></el-icon>删除
-      </el-button>
-      <el-button type="info" @click="handleExport">
-        <el-icon><Download /></el-icon>导出
-      </el-button>
-      <el-button @click="refreshTable">
-        <el-icon><Refresh /></el-icon>刷新
-      </el-button>
+      <el-button type="info" @click="handleExport" :icon="Download">导出</el-button>
+      <el-button @click="refreshTable" :icon="RefreshRight">刷新</el-button>
     </div>
 
     <!-- 用户表格 -->
@@ -86,17 +125,18 @@
       stripe
       style="width: 100%"
       @selection-change="handleSelectionChange"
+      highlight-current-row
     >
-      <el-table-column type="selection" width="55" />
-      <el-table-column prop="id" label="用户ID" width="80" sortable />
+      <el-table-column type="selection" width="55" align="center" />
+      <el-table-column prop="id" label="用户ID" width="80" sortable align="center" />
       <el-table-column prop="username" label="用户名" width="120" sortable />
       <el-table-column prop="name" label="姓名" width="100" sortable />
       <el-table-column prop="departmentName" label="部门" width="120" />
       <el-table-column prop="phone" label="手机号" width="120" />
       <el-table-column prop="email" label="邮箱" width="180" />
-      <el-table-column label="状态" width="100" sortable>
+      <el-table-column label="状态" width="100" sortable align="center">
         <template #default="{ row }">
-          <el-tag :type="getStatusTagType(row.status)">
+          <el-tag :type="getStatusTagType(row.status)" effect="light">
             {{ getStatusText(row.status) }}
           </el-tag>
         </template>
@@ -111,22 +151,33 @@
           {{ row.lastLoginTime ? formatDate(row.lastLoginTime) : '从未登录' }}
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="220" fixed="right">
+      <el-table-column label="操作" width="220" fixed="right" align="center">
         <template #default="{ row }">
-          <el-button size="small" @click="handleEdit(row.id)">编辑</el-button>
-          <el-button size="small" type="danger" @click="handleDelete(row.id)">删除</el-button>
+          <el-button size="small" @click="handleEdit(row.id)" :icon="EditPen">编辑</el-button>
           <el-dropdown>
             <el-button size="small">
               更多<el-icon class="el-icon--right"><arrow-down /></el-icon>
             </el-button>
             <template #dropdown>
               <el-dropdown-menu>
-                <el-dropdown-item @click="handleResetPassword(row.id)">重置密码</el-dropdown-item>
-                <el-dropdown-item @click="handleAssignRoles(row.id)">分配角色</el-dropdown-item>
+                <el-dropdown-item @click="handleResetPassword(row.id)" :icon="Key">
+                  重置密码
+                </el-dropdown-item>
+                <el-dropdown-item @click="handleAssignRoles(row.id)" :icon="User">
+                  分配角色
+                </el-dropdown-item>
                 <el-dropdown-item 
                   @click="handleChangeStatus(row.id, row.status === '0' ? '1' : '0')"
+                  :icon="row.status === '0' ? CircleClose : CircleCheck"
                 >
                   {{ row.status === '0' ? '禁用' : '启用' }}
+                </el-dropdown-item>
+                <el-dropdown-item 
+                  @click="handleDelete(row.id)" 
+                  :icon="Delete"
+                  style="color: #f56c6c"
+                >
+                  删除
                 </el-dropdown-item>
               </el-dropdown-menu>
             </template>
@@ -143,6 +194,7 @@
         :total="total"
         :page-sizes="[10, 20, 50, 100]"
         layout="total, sizes, prev, pager, next, jumper"
+        background
         @size-change="handleSizeChange"
         @current-change="handleCurrentChange"
       />
@@ -154,8 +206,15 @@
       :title="dialogTitle"
       width="600px"
       :close-on-click-modal="false"
+      :close-on-press-escape="false"
     >
-      <el-form ref="userForm" :model="formData" :rules="formRules" label-width="100px">
+      <el-form 
+        ref="userForm" 
+        :model="formData" 
+        :rules="formRules" 
+        label-width="100px"
+        label-position="left"
+      >
         <el-form-item label="用户名" prop="username">
           <el-input v-model="formData.username" :disabled="isEditMode" />
         </el-form-item>
@@ -169,7 +228,12 @@
           <el-input v-model="formData.phone" />
         </el-form-item>
         <el-form-item label="部门" prop="departmentId">
-          <el-select v-model="formData.departmentId" placeholder="请选择部门" style="width: 100%">
+          <el-select 
+            v-model="formData.departmentId" 
+            placeholder="请选择部门" 
+            style="width: 100%"
+            filterable
+          >
             <el-option
               v-for="dept in departmentOptions"
               :key="dept.id"
@@ -191,6 +255,7 @@
             multiple
             placeholder="请选择角色"
             style="width: 100%"
+            filterable
           >
             <el-option
               v-for="role in roleOptions"
@@ -201,18 +266,35 @@
           </el-select>
         </el-form-item>
         <el-form-item v-if="!isEditMode" label="初始密码" prop="password">
-          <el-input v-model="formData.password" type="password" show-password />
+          <el-input 
+            v-model="formData.password" 
+            type="password" 
+            show-password 
+            placeholder="默认密码: 123456"
+          />
         </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="submitForm">确定</el-button>
+        <el-button type="primary" @click="submitForm" :loading="formSubmitting">
+          确定
+        </el-button>
       </template>
     </el-dialog>
 
     <!-- 重置密码对话框 -->
-    <el-dialog v-model="resetPasswordDialogVisible" title="重置密码" width="400px">
-      <el-form ref="resetPasswordForm" :model="resetPasswordForm" :rules="resetPasswordRules">
+    <el-dialog 
+      v-model="resetPasswordDialogVisible" 
+      title="重置密码" 
+      width="400px"
+      :close-on-click-modal="false"
+    >
+      <el-form 
+        ref="resetPasswordForm" 
+        :model="resetPasswordForm" 
+        :rules="resetPasswordRules"
+        label-width="100px"
+      >
         <el-form-item label="新密码" prop="newPassword">
           <el-input
             v-model="resetPasswordForm.newPassword"
@@ -232,23 +314,42 @@
       </el-form>
       <template #footer>
         <el-button @click="resetPasswordDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="submitResetPassword">确定</el-button>
+        <el-button 
+          type="primary" 
+          @click="submitResetPassword"
+          :loading="passwordSubmitting"
+        >
+          确定
+        </el-button>
       </template>
     </el-dialog>
 
     <!-- 分配角色对话框 -->
-    <el-dialog v-model="assignRolesDialogVisible" title="分配角色" width="500px">
-      <el-checkbox-group v-model="selectedRoleIds">
+    <el-dialog 
+      v-model="assignRolesDialogVisible" 
+      title="分配角色" 
+      width="500px"
+      :close-on-click-modal="false"
+    >
+      <el-checkbox-group v-model="selectedRoleIds" class="role-checkbox-group">
         <el-checkbox
           v-for="role in roleOptions"
           :key="role.id"
           :label="role.id"
-          >{{ role.name }}</el-checkbox
+          class="role-checkbox"
         >
+          {{ role.name }}
+        </el-checkbox>
       </el-checkbox-group>
       <template #footer>
         <el-button @click="assignRolesDialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="submitAssignRoles">确定</el-button>
+        <el-button 
+          type="primary" 
+          @click="submitAssignRoles"
+          :loading="roleSubmitting"
+        >
+          确定
+        </el-button>
       </template>
     </el-dialog>
   </div>
@@ -256,14 +357,34 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
-import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
-import { Plus, Edit, Delete, Download, Refresh, ArrowDown } from '@element-plus/icons-vue'
+import { 
+  ElMessage, 
+  ElMessageBox, 
+  type FormInstance, 
+  type FormRules,
+  type UploadProps
+} from 'element-plus'
+import { 
+  Plus, 
+  Edit, 
+  Delete, 
+  Download, 
+  RefreshRight, 
+  ArrowDown,
+  Search,
+  RefreshLeft,
+  EditPen,
+  Key,
+  User,
+  CircleClose,
+  CircleCheck
+} from '@element-plus/icons-vue'
 import axios from 'axios'
 import dayjs from 'dayjs'
 
 // 1. 创建配置好的axios实例
 const apiClient = axios.create({
-  baseURL: 'http://localhost:8080',
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080',
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
@@ -335,6 +456,9 @@ const currentPage = ref(1)
 const pageSize = ref(10)
 const total = ref(0)
 const loading = ref(false)
+const formSubmitting = ref(false)
+const passwordSubmitting = ref(false)
+const roleSubmitting = ref(false)
 
 const searchParams = reactive({
   username: '',
@@ -458,10 +582,8 @@ const fetchUserList = async () => {
       }
     })
     
-    tableData.value = Array.isArray(response) ? response : []
-    total.value = response.totalCount || 
-                response.total || 
-                (Array.isArray(response) ? response.length : 0)
+    tableData.value = Array.isArray(response?.list) ? response.list : []
+    total.value = response?.total || 0
   } catch (error) {
     tableData.value = []
     total.value = 0
@@ -512,6 +634,7 @@ const handleReset = () => {
 }
 
 const refreshTable = () => {
+  currentPage.value = 1
   fetchUserList()
 }
 
@@ -541,6 +664,7 @@ const handleEdit = async (id?: number) => {
   if (!userId) return
 
   try {
+    loading.value = true
     const user = await apiClient.get(`/api/users/${userId}`)
     Object.assign(formData, {
       ...user,
@@ -552,13 +676,17 @@ const handleEdit = async (id?: number) => {
   } catch (error) {
     ElMessage.error('获取用户信息失败')
     console.error(error)
+  } finally {
+    loading.value = false
   }
 }
 
 const handleDelete = async (id: number) => {
   try {
     await ElMessageBox.confirm('确定要删除该用户吗？', '提示', {
-      type: 'warning'
+      type: 'warning',
+      confirmButtonText: '确定',
+      cancelButtonText: '取消'
     })
     await apiClient.delete(`/api/users/${id}`)
     ElMessage.success('删除成功')
@@ -573,8 +701,11 @@ const handleBatchDelete = async () => {
 
   try {
     await ElMessageBox.confirm(`确定要删除选中的 ${selectedRows.value.length} 个用户吗？`, '提示', {
-      type: 'warning'
+      type: 'warning',
+      confirmButtonText: '确定',
+      cancelButtonText: '取消'
     })
+    loading.value = true
     await apiClient.post('/api/users/batch-delete', {
       ids: selectedRows.value.map(user => user.id)
     })
@@ -583,11 +714,14 @@ const handleBatchDelete = async () => {
     fetchUserList()
   } catch (error) {
     console.error(error)
+  } finally {
+    loading.value = false
   }
 }
 
 const handleExport = async () => {
   try {
+    loading.value = true
     const response = await apiClient.get('/api/users/export', {
       responseType: 'blob',
       params: searchParams
@@ -603,10 +737,15 @@ const handleExport = async () => {
   } catch (error) {
     ElMessage.error('导出失败')
     console.error(error)
+  } finally {
+    loading.value = false
   }
 }
 
 const resetForm = () => {
+  if (userForm.value) {
+    userForm.value.resetFields()
+  }
   Object.assign(formData, {
     id: 0,
     username: '',
@@ -623,6 +762,7 @@ const resetForm = () => {
 const submitForm = async () => {
   try {
     await userForm.value?.validate()
+    formSubmitting.value = true
     
     if (isEditMode.value) {
       await apiClient.put(`/api/users/${formData.id}`, formData)
@@ -636,6 +776,8 @@ const submitForm = async () => {
     fetchUserList()
   } catch (error) {
     console.error('表单提交失败:', error)
+  } finally {
+    formSubmitting.value = false
   }
 }
 
@@ -656,23 +798,29 @@ const submitResetPassword = async () => {
   } catch (error) {
     ElMessage.error('密码重置失败')
     console.error(error)
+  } finally {
+    passwordSubmitting.value = false
   }
 }
 
 const handleAssignRoles = async (userId: number) => {
   currentAssignUserId.value = userId
   try {
+    loading.value = true
     const user = await apiClient.get(`/api/users/${userId}`)
     selectedRoleIds.value = user.roleIds || []
     assignRolesDialogVisible.value = true
   } catch (error) {
     ElMessage.error('获取用户角色失败')
     console.error(error)
+  } finally {
+    loading.value = false
   }
 }
 
 const submitAssignRoles = async () => {
   try {
+    roleSubmitting.value = true
     await apiClient.put(`/api/users/${currentAssignUserId.value}/roles`, {
       roleIds: selectedRoleIds.value
     })
@@ -682,6 +830,8 @@ const submitAssignRoles = async () => {
   } catch (error) {
     ElMessage.error('角色分配失败')
     console.error(error)
+  } finally {
+    roleSubmitting.value = false
   }
 }
 
@@ -706,9 +856,12 @@ onMounted(() => {
 })
 </script>
 
-<style scoped>
+<style scoped lang="css">
 .user-management {
   padding: 20px;
+  background-color: #fff;
+  border-radius: 4px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
 }
 
 .search-form {
@@ -719,24 +872,40 @@ onMounted(() => {
   padding: 15px;
   background: #f8f8f8;
   border-radius: 4px;
-}
 
-.form-item {
-  display: flex;
-  flex-direction: column;
-  min-width: 200px;
-}
+  .form-item {
+    display: flex;
+    flex-direction: column;
+    min-width: 200px;
 
-.form-item label {
-  margin-bottom: 5px;
-  font-weight: bold;
-  font-size: 14px;
-}
+    label {
+      margin-bottom: 5px;
+      font-weight: bold;
+      font-size: 14px;
+      color: #606266;
+    }
 
-.search-buttons {
-  display: flex;
-  align-items: flex-end;
-  gap: 10px;
+    &.date-range {
+      min-width: 380px;
+
+      .date-picker-group {
+        display: flex;
+        align-items: center;
+
+        .date-separator {
+          margin: 0 8px;
+          color: #909399;
+        }
+      }
+    }
+  }
+
+  .search-buttons {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+    margin-left: auto;
+  }
 }
 
 .operation-buttons {
@@ -752,7 +921,28 @@ onMounted(() => {
   justify-content: flex-end;
 }
 
-.el-date-editor {
-  width: 150px;
+.role-checkbox-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+
+  .role-checkbox {
+    margin-left: 0;
+    display: block;
+  }
+}
+
+.el-table {
+  margin-top: 10px;
+
+  :deep(.el-table__cell) {
+    padding: 8px 0;
+  }
+}
+
+.el-dialog {
+  :deep(.el-dialog__body) {
+    padding: 20px 30px;
+  }
 }
 </style>

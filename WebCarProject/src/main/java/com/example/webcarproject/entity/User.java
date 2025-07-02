@@ -18,5 +18,4 @@ public class User {
     private String status;          // 状态：0-正常，1-禁用，2-锁定
     private Date lastLoginTime;     // 最后登录时间
     private Date createTime;        // 创建时间
-    private Date updateTime;        // 更新时间
 }
