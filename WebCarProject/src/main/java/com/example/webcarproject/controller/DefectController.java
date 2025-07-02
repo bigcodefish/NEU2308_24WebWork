@@ -115,7 +115,6 @@ public class DefectController {
 
 
 
-    
     @GetMapping("/stats")
     public DefectStats getDefectStats() {
         return defectMapper.getDefectStats();
@@ -124,5 +123,11 @@ public class DefectController {
     @GetMapping("/type-stats")
     public List<Map<String, Object>> getDefectTypeStats() {
         return defectMapper.getDefectTypeStats();
+    }
+
+
+    @GetMapping("/monthly-stats")
+    public List<Map<String, Object>> getMonthlyDefectStats() {
+        return defectMapper.getMonthlyDefectStats();
     }
 }
