@@ -115,6 +115,7 @@ public class DefectController {
 
 
 
+    
     @GetMapping("/stats")
     public DefectStats getDefectStats() {
         return defectMapper.getDefectStats();
