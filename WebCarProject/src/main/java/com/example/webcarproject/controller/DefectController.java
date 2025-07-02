@@ -2,6 +2,7 @@ package com.example.webcarproject.controller;
 
 
 import com.example.webcarproject.entity.Defect;
+import com.example.webcarproject.entity.DefectStats;
 import com.example.webcarproject.mapper.DefectMapper;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
@@ -110,5 +111,17 @@ public class DefectController {
     public String delete(@PathVariable Long id) {
         int result = defectMapper.deleteById(id);
         return result > 0 ? "删除成功" : "删除失败";
+    }
+
+
+
+    @GetMapping("/stats")
+    public DefectStats getDefectStats() {
+        return defectMapper.getDefectStats();
+    }
+
+    @GetMapping("/type-stats")
+    public List<Map<String, Object>> getDefectTypeStats() {
+        return defectMapper.getDefectTypeStats();
     }
 }
