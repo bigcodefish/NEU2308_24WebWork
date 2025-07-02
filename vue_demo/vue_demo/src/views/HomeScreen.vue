@@ -1,5 +1,6 @@
 <template>
 	<!-- 模拟数据 -->
+
 	<div class="dashboard-container">
 		<div class="wireframe">
 			<div class="header">
@@ -43,8 +44,8 @@
 					</div>
 
 					<div class="card">
-						<div class="card-title">缺陷类型统计</div>
-						<div class="chart-area">饼状图 - 缺陷类型分布</div>
+						<div class="card-title">缺陷类型统计 (共 {{ totalDefects }} 个)</div>
+						<div class="chart-area" ref="pieChart" style="height: 100%; min-height: 200px;"></div>
 					</div>
 
 					<div class="card">
@@ -85,15 +86,15 @@
 						<div class="card-title">缺陷数据统计</div>
 						<div class="stats-grid">
 							<div class="stat-item">
-								<div class="stat-number">456</div>
+								<div class="stat-number">{{ defectStats.totalDefects || 0 }}</div>
 								<div class="stat-label">累计缺陷数</div>
 							</div>
 							<div class="stat-item">
-								<div class="stat-number">321</div>
+								<div class="stat-number">{{ defectStats.confirmedDefects || 0 }}</div>
 								<div class="stat-label">确认缺陷数</div>
 							</div>
 							<div class="stat-item">
-								<div class="stat-number">135</div>
+								<div class="stat-number">{{ defectStats.falseDefects || 0 }}</div>
 								<div class="stat-label">误报缺陷数</div>
 							</div>
 						</div>
@@ -106,7 +107,7 @@
 
 					<div class="card">
 						<div class="card-title">缺陷数据变化</div>
-						<div class="chart-area">折线图 - 缺陷趋势变化</div>
+						<div class="chart-area" ref="lineChart" style="height: 100%; min-height: 200px;"></div>
 					</div>
 				</div>
 			</div>
@@ -115,11 +116,247 @@
 </template>
 
 <script setup lang="ts">
-	import router from '@/router';
+	import { ref, onMounted, nextTick, computed } from 'vue'
+	import router from '@/router'
+	import axios from 'axios'
+	import * as echarts from 'echarts'
+
+	const API_URL = 'http://localhost:8080/api/defects'
+
+	// 缺陷统计
+	const defectStats = ref({
+		totalDefects: 0,
+		confirmedDefects: 0,
+		falseDefects: 0
+	})
+
+	// 缺陷类型数据
+	const defectTypes = ref<{ type : string; count : number }[]>([])
+	const pieChart = ref<HTMLElement | null>(null)
+
+	// 计算总缺陷数
+	const totalDefects = computed(() => {
+		return defectTypes.value.reduce((sum, item) => sum + item.count, 0)
+	})
+
+	const lineChart = ref<HTMLElement | null>(null)
+	const monthlyDefectStats = ref<{ month : string; count : number }[]>([])
 
 	const enterSystem = () => {
-		router.push('/system');
+		router.push('/system')
 	}
+
+	// 获取缺陷统计数据
+	const fetchDefectStats = async () => {
+		try {
+			const res = await axios.get(`${API_URL}/stats`)
+			defectStats.value = res.data
+		} catch (e) {
+			console.error('获取缺陷统计数据失败', e)
+		}
+	}
+
+	// 获取缺陷类型统计数据
+	const fetchDefectTypeStats = async () => {
+		try {
+			const res = await axios.get(`${API_URL}/type-stats`)
+			defectTypes.value = res.data.map((item : any) => ({
+				type: item.defectType,
+				count: item.count
+			}))
+
+			// 数据获取后渲染图表
+			renderPieChart()
+		} catch (e) {
+			console.error('获取缺陷类型统计数据失败', e)
+		}
+	}
+
+	// 渲染饼图
+	const renderPieChart = () => {
+		if (!pieChart.value || defectTypes.value.length === 0) return
+
+		// 初始化ECharts实例
+		const chart = echarts.init(pieChart.value)
+
+		// 配置项
+		const option = {
+			tooltip: {
+				trigger: 'item',
+				formatter: '{a} <br/>{b}: {c} ({d}%)'
+			},
+			legend: {
+				orient: 'vertical',
+				right: 10,
+				top: 'center',
+				data: defectTypes.value.map(item => item.type),
+				textStyle: {
+					color: '#fff'
+				}
+			},
+			series: [
+				{
+					name: '缺陷类型分布',
+					type: 'pie',
+					radius: ['45%', '70%'],
+					center: ['40%', '50%'],
+					avoidLabelOverlap: false,
+					itemStyle: {
+						borderRadius: 6,
+						borderColor: '#000',
+						borderWidth: 2,
+						shadowBlur: 10,
+						shadowColor: 'rgba(0, 0, 0, 0.5)'
+					},
+					label: {
+						show: false,
+						position: 'center'
+					},
+					emphasis: {
+						scale: true,
+						scaleSize: 8,
+						label: {
+							show: true,
+							fontSize: '14',
+							fontWeight: 'bold',
+							color: '#fff'
+						}
+					},
+					labelLine: {
+						show: false
+					},
+					data: defectTypes.value.map(item => ({
+						value: item.count,
+						name: item.type
+					}))
+				}
+			],
+			color: [
+				'#36A2DB', '#4BC0C0', '#FFCE56', '#FF9F40', '#FF6384',
+				'#9966FF', '#C9CBCF', '#7EB00F', '#E7B800', '#CC99FF'
+			]
+		}
+
+		// 设置配置项并渲染图表
+		chart.setOption(option)
+
+		// 响应窗口大小变化
+		window.addEventListener('resize', () => {
+			chart.resize()
+		})
+	}
+
+	// 获取月度缺陷数据方法
+	const fetchMonthlyDefectStats = async () => {
+		try {
+			const res = await axios.get(`${API_URL}/monthly-stats`)
+			monthlyDefectStats.value = res.data.map((item : any) => ({
+				month: item.month,
+				count: item.count
+			}))
+
+			// 数据获取后渲染折线图
+			renderLineChart()
+		} catch (e) {
+			console.error('获取月度缺陷统计数据失败', e)
+		}
+	}
+
+	// 渲染折线图方法
+	const renderLineChart = () => {
+		if (!lineChart.value || monthlyDefectStats.value.length === 0) return
+
+		// 初始化ECharts实例
+		const chart = echarts.init(lineChart.value)
+
+		// 准备数据
+		const months = monthlyDefectStats.value.map(item => item.month)
+		const counts = monthlyDefectStats.value.map(item => item.count)
+
+		// 配置项
+		const option = {
+			tooltip: {
+				trigger: 'axis',
+				formatter: '{b}: {c}个',
+				backgroundColor: 'rgba(0,0,0,0.7)',
+				borderColor: '#00a8e8',
+				textStyle: {
+					color: '#fff'
+				}
+			},
+			grid: {
+				left: '3%',
+				right: '4%',
+				bottom: '3%',
+				top: '5%',
+				containLabel: true
+			},
+			xAxis: {
+				type: 'category',
+				data: months,
+				axisLine: {
+					lineStyle: {
+						color: '#00a8e8'
+					}
+				},
+				axisLabel: {
+					color: '#aaa'
+				}
+			},
+			yAxis: {
+				type: 'value',
+				axisLine: {
+					show: true,
+					lineStyle: {
+						color: '#00a8e8'
+					}
+				},
+				axisLabel: {
+					color: '#aaa'
+				},
+				splitLine: {
+					lineStyle: {
+						color: 'rgba(0, 168, 232, 0.1)'
+					}
+				}
+			},
+			series: [
+				{
+					name: '缺陷数量',
+					type: 'line',
+					data: counts,
+					smooth: true,
+					lineStyle: {
+						width: 3,
+						color: '#36A2DB'
+					},
+					itemStyle: {
+						color: '#36A2DB'
+					},
+					areaStyle: {
+						color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+							{ offset: 0, color: 'rgba(54, 162, 219, 0.5)' },
+							{ offset: 1, color: 'rgba(54, 162, 219, 0.1)' }
+						])
+					}
+				}
+			]
+		}
+
+		// 设置配置项并渲染图表
+		chart.setOption(option)
+
+		// 响应窗口大小变化
+		window.addEventListener('resize', () => {
+			chart.resize()
+		})
+	}
+
+	onMounted(() => {
+		fetchDefectStats()
+		fetchDefectTypeStats()
+		fetchMonthlyDefectStats()
+	})
 </script>
 
 <style scoped>
@@ -254,6 +491,8 @@
 		border-radius: 4px;
 		flex: 1;
 		min-height: 150px;
+		overflow: hidden;
+		/* 防止图表溢出 */
 	}
 
 	.center-stats {
