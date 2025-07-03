@@ -52,7 +52,7 @@
 	import { onMounted, ref } from 'vue';
 	import router from '@/router';
 	import CryptoJS from 'crypto-js'; // 引入加密库
-import axios from 'axios';
+	import axios from 'axios';
 
 	// 表单数据
 	const username = ref('');

@@ -107,6 +107,24 @@ const routes : RouteRecordRaw[] = [
 			requiresAuth: true,
 			permissions: ['defect:view']
 		}
+	},
+	{
+		path: '/task',
+		name: 'TaskManagement',
+		component: () => import('@/views/TaskManagement.vue'),
+		meta: {
+			title: '任务管理',
+			requiresAuth: true
+		}
+	},
+	{
+		path: '/task-detail/:id',
+		name: 'TaskDetailPage',
+		component: () => import('@/components/TaskDetailPage.vue'),
+		meta: {
+			title: '任务详情',
+			requiresAuth: true
+		}
 	}
 ]
 

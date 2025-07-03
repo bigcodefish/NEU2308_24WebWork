@@ -347,7 +347,7 @@
 	})
 
 	const enterSystem = () => {
-		router.push('/system')
+		router.push('/task')
 	}
 
 	// 获取缺陷统计数据
