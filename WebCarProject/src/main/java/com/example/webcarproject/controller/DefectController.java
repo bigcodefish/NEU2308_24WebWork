@@ -8,6 +8,7 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -125,9 +126,33 @@ public class DefectController {
         return defectMapper.getDefectTypeStats();
     }
 
+    @GetMapping("/type-details")
+    public Map<String, Object> getDefectTypeDetails(@RequestParam String defectType) {
+        return defectMapper.getDefectTypeDetails(defectType);
+    }
 
+    // 添加月度统计接口
     @GetMapping("/monthly-stats")
     public List<Map<String, Object>> getMonthlyDefectStats() {
-        return defectMapper.getMonthlyDefectStats();
+        return defectMapper.getMonthlyStats();
+    }
+
+    // 获取月度缺陷详情的接口
+    @GetMapping("/monthly-details")
+    public Map<String, Object> getMonthlyDefectDetails(
+            @RequestParam String month,
+            @RequestParam(defaultValue = "1000") int pageSize) {  // 获取更多数据
+
+        Map<String, Object> result = new HashMap<>();
+
+        // 获取该月缺陷列表
+        List<Defect> defects = defectMapper.getMonthlyDefectDetails(month, pageSize);
+        result.put("defects", defects);
+
+        // 获取该月统计数据
+        DefectStats stats = defectMapper.getMonthlyDefectStats(month);
+        result.put("stats", stats);
+
+        return result;
     }
 }

@@ -113,13 +113,43 @@ public interface DefectMapper {
     @Select("SELECT defect_type AS defectType, COUNT(*) AS count FROM defect_info GROUP BY defect_type")
     List<Map<String, Object>> getDefectTypeStats();
 
+    @Select("SELECT " +
+            "COUNT(*) AS total, " +
+            "SUM(CASE WHEN is_real = true THEN 1 ELSE 0 END) AS confirmed, " +
+            "SUM(CASE WHEN is_real = false THEN 1 ELSE 0 END) AS falseDefects, " +
+            "SUM(CASE WHEN severity = '高' THEN 1 ELSE 0 END) AS highSeverity, " +
+            "SUM(CASE WHEN severity = '中' THEN 1 ELSE 0 END) AS mediumSeverity, " +
+            "SUM(CASE WHEN severity = '低' THEN 1 ELSE 0 END) AS lowSeverity " +
+            "FROM defect_info " +
+            "WHERE defect_type = #{defectType}")
+    Map<String, Object> getDefectTypeDetails(@Param("defectType") String defectType);
+
+    // 月度缺陷详情查询方法
+    @Select("SELECT * FROM defect_info " +
+            "WHERE TO_CHAR(report_time, 'YYYY-MM') = #{month} " +
+            "ORDER BY report_time DESC " +
+            "LIMIT #{pageSize}")
+    List<Defect> getMonthlyDefectDetails(@Param("month") String month,
+                                         @Param("pageSize") int pageSize);
 
 
+
+    // 月度统计查询方法
     @Select("SELECT TO_CHAR(report_time, 'YYYY-MM') AS month, COUNT(*) AS count " +
             "FROM defect_info " +
-            "WHERE report_time >= NOW() - INTERVAL '1 year' " +
             "GROUP BY TO_CHAR(report_time, 'YYYY-MM') " +
             "ORDER BY month")
-    List<Map<String, Object>> getMonthlyDefectStats();
+    List<Map<String, Object>> getMonthlyStats();
+
+    @Select("SELECT " +
+            "COUNT(*) AS totalDefects, " +
+            "SUM(CASE WHEN is_real = true THEN 1 ELSE 0 END) AS confirmedDefects, " +
+            "SUM(CASE WHEN is_real = false THEN 1 ELSE 0 END) AS falseDefects, " +
+            "SUM(CASE WHEN severity = '高' THEN 1 ELSE 0 END) AS highSeverity, " +
+            "SUM(CASE WHEN severity = '中' THEN 1 ELSE 0 END) AS mediumSeverity, " +
+            "SUM(CASE WHEN severity = '低' THEN 1 ELSE 0 END) AS lowSeverity " +
+            "FROM defect_info " +
+            "WHERE TO_CHAR(report_time, 'YYYY-MM') = #{month}")
+    DefectStats getMonthlyDefectStats(@Param("month") String month);
 
 }
