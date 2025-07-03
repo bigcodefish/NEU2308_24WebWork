@@ -29,6 +29,7 @@ public interface UserMapper {
             "   <if test='endTime != null'> AND u.create_time &lt;= #{endTime} </if>" +
             "</where>" +
             " ORDER BY u.create_time DESC" +
+            "<if test='page != null and size != null'> LIMIT #{size} OFFSET #{page} </if>" +
             "</script>")
     List<User> selectByCondition(@Param("username") String username,
                                  @Param("name") String name,
@@ -37,7 +38,9 @@ public interface UserMapper {
                                  @Param("departmentId") Long departmentId,
                                  @Param("status") String status,
                                  @Param("startTime") Date startTime,
-                                 @Param("endTime") Date endTime);
+                                 @Param("endTime") Date endTime,
+                                 @Param("page") Integer page,
+                                 @Param("size") Integer size);
 
     @Select("SELECT * FROM user_info WHERE id = #{id}")
     User selectById(Long id);
@@ -113,4 +116,25 @@ public interface UserMapper {
             @Param("endTime") Date endTime
     );
 
+    @Select("<script>" +
+            "SELECT COUNT(*) FROM user_info u " +
+            "<where>" +
+            "   <if test='username != null and username != \"\"'> AND u.username LIKE CONCAT('%', #{username}, '%') </if>" +
+            "   <if test='name != null and name != \"\"'> AND u.name LIKE CONCAT('%', #{name}, '%') </if>" +
+            "   <if test='phone != null and phone != \"\"'> AND u.phone LIKE CONCAT('%', #{phone}, '%') </if>" +
+            "   <if test='email != null and email != \"\"'> AND u.email LIKE CONCAT('%', #{email}, '%') </if>" +
+            "   <if test='departmentId != null'> AND u.department_id = #{departmentId} </if>" +
+            "   <if test='status != null and status != \"\"'> AND u.status = #{status} </if>" +
+            "   <if test='startTime != null'> AND u.create_time &gt;= #{startTime} </if>" +
+            "   <if test='endTime != null'> AND u.create_time &lt;= #{endTime} </if>" +
+            "</where>" +
+            "</script>")
+    int countByCondition(@Param("username") String username,
+                         @Param("name") String name,
+                         @Param("phone") String phone,
+                         @Param("email") String email,
+                         @Param("departmentId") Long departmentId,
+                         @Param("status") String status,
+                         @Param("startTime") Date startTime,
+                         @Param("endTime") Date endTime);
 }

@@ -593,7 +593,7 @@ const fetchUserList = async () => {
   try {
     loading.value = true;
     
-    // 构造查询参数（过滤undefined值）
+    // 构造查询参数
     const params = {
       username: searchParams.username || undefined,
       name: searchParams.name || undefined,
@@ -601,40 +601,40 @@ const fetchUserList = async () => {
       email: searchParams.email || undefined,
       departmentId: searchParams.departmentId || undefined,
       status: searchParams.status || undefined,
-      startTime: searchParams.startTime || undefined,
-      endTime: searchParams.endTime || undefined,
+      startTime: searchParams.startTime ? dayjs(searchParams.startTime).format('YYYY-MM-DD') : undefined,
+      endTime: searchParams.endTime ? dayjs(searchParams.endTime).format('YYYY-MM-DD') : undefined,
       page: currentPage.value,
       size: pageSize.value
     };
 
-    // 过滤掉undefined参数
-    const filteredParams = Object.fromEntries(
-      Object.entries(params).filter(([_, v]) => v !== undefined)
-    );
-
     // 发送请求
-    const response = await apiClient.get('/api/users', { 
-      params: filteredParams,
-      // 添加请求取消令牌（可选）
-      cancelToken: new axios.CancelToken(c => {
-        // 可以在这里保存cancel函数用于取消请求
-      })
+    const response = await apiClient.get('/api/users/condition', { 
+      params: params,
+      paramsSerializer: {
+        indexes: null // 防止数组参数被序列化为索引形式
+      }
     });
 
-    // 关键修改：直接使用返回的数组（根据你的curl测试结果）
-    const users = Array.isArray(response) ? response : [];
-    
-    // 处理数据（添加departmentName等前端需要的字段）
-    tableData.value = users.map(user => ({
-      ...user,
-      // 添加部门名称显示
-      departmentName: departmentOptions.value.find(d => d.id === user.departmentId)?.name || '未分配',
-      // 确保roleIds是数组
-      roleIds: Array.isArray(user.roleIds) ? user.roleIds : []
-    }));
-
-    // 设置总数（如果是分页接口，应该从响应头或响应体中获取total）
-    total.value = users.length; // 如果没有分页信息，使用数组长度
+    // 处理响应数据
+    if (Array.isArray(response)) {
+      tableData.value = response.map(user => ({
+        ...user,
+        departmentName: departmentOptions.value.find(d => d.id === user.departmentId)?.name || '未分配',
+        roleIds: Array.isArray(user.roleIds) ? user.roleIds : []
+      }));
+      total.value = response.length;
+    } else if (response && response.data && response.total) {
+      // 如果有分页结构
+      tableData.value = response.data.map(user => ({
+        ...user,
+        departmentName: departmentOptions.value.find(d => d.id === user.departmentId)?.name || '未分配',
+        roleIds: Array.isArray(user.roleIds) ? user.roleIds : []
+      }));
+      total.value = response.total;
+    } else {
+      tableData.value = [];
+      total.value = 0;
+    }
 
   } catch (error) {
     if (!axios.isCancel(error)) {

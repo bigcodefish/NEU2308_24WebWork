@@ -5,6 +5,7 @@ import com.example.webcarproject.mapper.UserMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.io.InputStreamResource;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -18,6 +19,7 @@ import java.io.ByteArrayOutputStream;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -376,5 +378,40 @@ public class UserController {
         }
     }
 
+    @GetMapping("/condition")
+    public ResponseEntity<?> getUsersByCondition(
+            @RequestParam(required = false) String username,
+            @RequestParam(required = false) String name,
+            @RequestParam(required = false) String phone,
+            @RequestParam(required = false) String email,
+            @RequestParam(required = false) Long departmentId,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date startTime,
+            @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date endTime,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        try {
+            List<User> users = userMapper.selectByCondition(
+                    username, name, phone, email,
+                    departmentId, status, startTime, endTime,
+                    (page - 1) * size, size);
+
+            // 获取总数
+            int total = userMapper.countByCondition(
+                    username, name, phone, email,
+                    departmentId, status, startTime, endTime);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("data", users);
+            response.put("total", total);
+            response.put("currentPage", page);
+            response.put("pageSize", size);
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            logger.error("查询用户失败", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
 
 }

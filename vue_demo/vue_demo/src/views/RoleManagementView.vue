@@ -505,7 +505,6 @@ const handleAdd = () => {
 
 const handleEdit = async (id?: number) => {
   try {
-    // 确定角色ID
     const roleId = id ?? (selectedRows.value.length === 1 ? selectedRows.value[0].id : undefined);
     
     if (!roleId) {
@@ -513,37 +512,32 @@ const handleEdit = async (id?: number) => {
       return;
     }
 
-    console.log('正在请求角色ID:', roleId); // 调试日志
+    console.log('请求角色ID:', roleId);
     
-    // 添加请求配置，确保正确处理响应
-    const response = await apiClient.get(`/api/roles/${roleId}`, {
-      transformResponse: [
-        function (data) {
-          try {
-            return typeof data === 'string' ? JSON.parse(data) : data;
-          } catch (e) {
-            console.error('解析响应数据失败:', e);
-            return data;
-          }
-        }
-      ]
+    // 使用新的axios实例避免配置冲突
+    const response = await axios.get(`http://localhost:8080/api/roles/${roleId}`, {
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      }
     });
 
-    console.log('获取到的角色数据:', response); // 调试日志
+    console.log('完整响应:', response);
     
-    if (!response) {
-      ElMessage.error('未获取到角色数据');
-      return;
+    // 检查响应结构
+    const responseData = response.data?.data || response.data;
+    if (!responseData) {
+      throw new Error('响应数据为空');
     }
 
-    // 确保数据正确映射到表单
+    // 更新表单数据
     Object.assign(formData, {
-      id: response.id,
-      name: response.name,
-      code: response.code,
-      description: response.description || '',
-      dataScope: response.dataScope || 'all',
-      status: response.status || '0'
+      id: responseData.id,
+      name: responseData.name,
+      code: responseData.code,
+      description: responseData.description || '',
+      dataScope: responseData.dataScope || 'all',
+      status: responseData.status || '0'
     });
     
     isEditMode.value = true;
@@ -551,18 +545,18 @@ const handleEdit = async (id?: number) => {
     dialogVisible.value = true;
     
   } catch (error: any) {
-    console.error('编辑角色时出错:', error);
+    console.error('完整错误:', error);
     
     let errorMessage = '获取角色信息失败';
     if (error.response) {
       errorMessage += ` (状态码: ${error.response.status})`;
-      if (error.response.data?.message) {
-        errorMessage += `: ${error.response.data.message}`;
+      if (error.response.data) {
+        errorMessage += `: ${JSON.stringify(error.response.data)}`;
       }
     } else if (error.request) {
       errorMessage = '无法连接到服务器';
     } else {
-      errorMessage = error.message || '未知错误';
+      errorMessage = error.message;
     }
     
     ElMessage.error(errorMessage);
@@ -583,42 +577,67 @@ const handleDelete = async (id: number) => {
 }
 
 const handleBatchDelete = async () => {
-  if (selectedRows.value.length === 0) return
+  if (selectedRows.value.length === 0) return;
 
   try {
     await ElMessageBox.confirm(`确定要删除选中的 ${selectedRows.value.length} 个角色吗？`, '提示', {
       type: 'warning'
-    })
-    await apiClient.post('/api/roles/batch-delete', {
+    });
+    
+    const response = await apiClient.post('/api/roles/batch-delete', {
       ids: selectedRows.value.map(role => role.id)
-    })
-    ElMessage.success('批量删除成功')
-    selectedRows.value = []
-    fetchRoleList()
-  } catch (error) {
-    console.error(error)
+    });
+    
+    if (response.success) {
+      ElMessage.success(response.message);
+    } else {
+      ElMessage.warning(response.message);
+    }
+    
+    selectedRows.value = [];
+    fetchRoleList();
+  } catch (error: any) {
+    console.error('批量删除失败:', error);
+    const errMsg = error.response?.data?.message || 
+                  error.message || 
+                  '批量删除失败';
+    ElMessage.error(errMsg);
   }
 }
 
 const handleExport = async () => {
   try {
-    const response = await apiClient.get('/api/roles/export', {
-      responseType: 'blob',
-      params: searchParams
-    })
+    loading.value = true;
     
-    const url = window.URL.createObjectURL(new Blob([response]))
-    const link = document.createElement('a')
-    link.href = url
-    link.setAttribute('download', `角色列表_${dayjs().format('YYYYMMDDHHmmss')}.xlsx`)
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
+    // 使用新的axios实例避免transformResponse干扰
+    const response = await axios.get('/api/roles/export', {
+      baseURL: 'http://localhost:8080',
+      params: {
+        name: searchParams.name,
+        code: searchParams.code,
+        status: searchParams.status,
+        startTime: searchParams.startTime,
+        endTime: searchParams.endTime
+      },
+      responseType: 'blob' // 重要：指定响应类型为blob
+    });
+    
+    // 创建下载链接
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `角色列表_${dayjs().format('YYYYMMDDHHmmss')}.xlsx`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
   } catch (error) {
-    ElMessage.error('导出失败')
-    console.error(error)
+    console.error('导出失败:', error);
+    ElMessage.error('导出失败');
+  } finally {
+    loading.value = false;
   }
-}
+};
 
 const resetForm = () => {
   Object.assign(formData, {
@@ -715,14 +734,16 @@ const submitAssignUsers = async () => {
 
 const handleChangeStatus = async (roleId: number, newStatus: string) => {
   try {
-    await apiClient.put(`/api/roles/${roleId}/status`, {
-      status: newStatus
-    })
+    // 修改为使用查询参数发送状态
+    await apiClient.put(`/api/roles/${roleId}/status?status=${newStatus}`, null)
     ElMessage.success('状态更新成功')
     fetchRoleList()
-  } catch (error) {
-    ElMessage.error('状态更新失败')
-    console.error(error)
+  } catch (error: any) {
+    console.error('状态更新失败:', error)
+    const errMsg = error.response?.data?.message || 
+                  error.message || 
+                  '状态更新失败'
+    ElMessage.error(errMsg)
   }
 }
 
