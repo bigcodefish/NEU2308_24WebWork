@@ -80,4 +80,12 @@ public interface RoleMapper {
 
     @Select("SELECT COUNT(*) FROM user_role_relation WHERE role_id = #{roleId}")
     int countUsersByRoleId(Long roleId);
+
+    @Delete("<script>" +
+            "DELETE FROM role_info WHERE id IN " +
+            "<foreach collection='ids' item='id' open='(' separator=',' close=')'>" +
+            "   #{id}" +
+            "</foreach>" +
+            "</script>")
+    int batchDelete(@Param("ids") List<Long> ids);
 }
