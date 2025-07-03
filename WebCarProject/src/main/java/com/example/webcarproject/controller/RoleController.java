@@ -6,7 +6,9 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @CrossOrigin(origins = "*")
 @RestController
@@ -40,30 +42,35 @@ public class RoleController {
     }
 
     @PostMapping
-    public String add(@RequestBody Role role) {
+    public Map<String, Object> add(@RequestBody Role role) {
+        Map<String, Object> result = new HashMap<>();
         role.setCreateTime(new Date());
-        role.setStatus("0"); // 默认状态为启用
-        int result = roleMapper.insert(role);
-        if (result > 0 && role.getMenuIds() != null && !role.getMenuIds().isEmpty()) {
+        role.setStatus("0");
+        int res = roleMapper.insert(role);
+        if (res > 0 && role.getMenuIds() != null && !role.getMenuIds().isEmpty()) {
             roleMapper.insertRoleMenus(role.getId(), role.getMenuIds());
         }
-        return result > 0 ? "添加成功" : "添加失败";
+        result.put("success", res > 0);
+        result.put("message", res > 0 ? "添加成功" : "添加失败");
+        return result;
     }
 
     @PutMapping("/{id}")
-    public String update(@PathVariable Long id, @RequestBody Role role) {
+    public Map<String, Object> update(@PathVariable Long id, @RequestBody Role role) {
+        Map<String, Object> result = new HashMap<>();
         role.setId(id);
         role.setUpdateTime(new Date());
-        int result = roleMapper.update(role);
-        if (result > 0) {
+        int res = roleMapper.update(role);
+        if (res > 0) {
             roleMapper.deleteRoleMenus(id);
             if (role.getMenuIds() != null && !role.getMenuIds().isEmpty()) {
                 roleMapper.insertRoleMenus(id, role.getMenuIds());
             }
         }
-        return result > 0 ? "更新成功" : "更新失败";
+        result.put("success", res > 0);
+        result.put("message", res > 0 ? "更新成功" : "更新失败");
+        return result;
     }
-
     @PutMapping("/{id}/status")
     public String updateStatus(@PathVariable Long id, @RequestParam String status) {
         int result = roleMapper.updateStatus(id, status);

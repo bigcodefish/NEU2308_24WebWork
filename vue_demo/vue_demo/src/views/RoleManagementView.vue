@@ -44,9 +44,9 @@
       <el-button type="primary" @click="handleAdd">
         <el-icon><Plus /></el-icon>新增
       </el-button>
-      <el-button type="success" :disabled="selectedRows.length !== 1" @click="handleEdit">
-        <el-icon><Edit /></el-icon>修改
-      </el-button>
+      <el-button type="success" :disabled="selectedRows.length !== 1" @click="handleEdit(selectedRows[0].id)">
+         <el-icon><Edit /></el-icon>修改
+       </el-button>
       <el-button type="danger" :disabled="selectedRows.length === 0" @click="handleBatchDelete">
         <el-icon><Delete /></el-icon>删除
       </el-button>
@@ -504,20 +504,68 @@ const handleAdd = () => {
 }
 
 const handleEdit = async (id?: number) => {
-  const roleId = id || selectedRows.value[0]?.id
-  if (!roleId) return
-
   try {
-    const role = await apiClient.get(`/api/roles/${roleId}`)
+    // 确定角色ID
+    const roleId = id ?? (selectedRows.value.length === 1 ? selectedRows.value[0].id : undefined);
+    
+    if (!roleId) {
+      ElMessage.warning('请选择要编辑的角色');
+      return;
+    }
+
+    console.log('正在请求角色ID:', roleId); // 调试日志
+    
+    // 添加请求配置，确保正确处理响应
+    const response = await apiClient.get(`/api/roles/${roleId}`, {
+      transformResponse: [
+        function (data) {
+          try {
+            return typeof data === 'string' ? JSON.parse(data) : data;
+          } catch (e) {
+            console.error('解析响应数据失败:', e);
+            return data;
+          }
+        }
+      ]
+    });
+
+    console.log('获取到的角色数据:', response); // 调试日志
+    
+    if (!response) {
+      ElMessage.error('未获取到角色数据');
+      return;
+    }
+
+    // 确保数据正确映射到表单
     Object.assign(formData, {
-      ...role
-    })
-    isEditMode.value = true
-    dialogTitle.value = '编辑角色'
-    dialogVisible.value = true
-  } catch (error) {
-    ElMessage.error('获取角色信息失败')
-    console.error(error)
+      id: response.id,
+      name: response.name,
+      code: response.code,
+      description: response.description || '',
+      dataScope: response.dataScope || 'all',
+      status: response.status || '0'
+    });
+    
+    isEditMode.value = true;
+    dialogTitle.value = '编辑角色';
+    dialogVisible.value = true;
+    
+  } catch (error: any) {
+    console.error('编辑角色时出错:', error);
+    
+    let errorMessage = '获取角色信息失败';
+    if (error.response) {
+      errorMessage += ` (状态码: ${error.response.status})`;
+      if (error.response.data?.message) {
+        errorMessage += `: ${error.response.data.message}`;
+      }
+    } else if (error.request) {
+      errorMessage = '无法连接到服务器';
+    } else {
+      errorMessage = error.message || '未知错误';
+    }
+    
+    ElMessage.error(errorMessage);
   }
 }
 
