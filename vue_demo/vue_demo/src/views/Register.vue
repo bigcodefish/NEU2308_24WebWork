@@ -1,13 +1,6 @@
 <template>
   <div class="register-container">
-    <div class="note">
-      <h3>页面功能说明</h3>
-      <ul>
-        <li>系统注册入口页面</li>
-        <li>包含用户名、密码和确认密码</li>
-        <li>密码强度实时检测</li>
-      </ul>
-    </div>
+
 
     <div class="wireframe">
       <div class="title">地铁隧道巡线大数据仿真和分析平台</div>
@@ -72,9 +65,11 @@
 </template>
 
 <script setup lang="ts">
+import axios from 'axios';
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
-
+	const username = ref('');
+	const password = ref('');
 const router = useRouter();
 
 // 表单数据
@@ -103,9 +98,18 @@ const checkPasswordStrength = () => {
   
   strengthLevel.value = level;
 };
-
+  const checkUsername = async () => {
+    const res = await axios.get('/api/auth/checkUsername', {
+      params: { username: form.value.username }
+    });
+    if (res.data.exists) {
+      alert('用户名已存在');
+      return false;
+    }
+    return true;
+  };
 // 处理注册
-const handleRegister = () => {
+const handleRegister = async () => {
   const { username, password, confirmPassword } = form.value;
   
   if (!username || !password || !confirmPassword) {
@@ -122,17 +126,21 @@ const handleRegister = () => {
     alert('请设置更复杂的密码');
     return;
   }
-  
-  // 模拟注册成功
-  console.log('注册信息:', {
-    username,
-    password,
-    strength: strengthLevel.value
-  });
-  
-  alert('注册成功');
-  router.push('/'); // 注册成功后跳转到登录页
-};
+  if (!await checkUsername()) return;
+    
+    try {
+      const res = await axios.post('http://localhost:8080/api/auth/register', form.value);
+      if (res.data.success) {
+        alert('注册成功');
+        router.push('/');
+      } else {
+        alert(res.data.message);
+      }
+    } catch (error) {
+      alert('注册失败');
+    }
+  };
+
 
 // 跳转到登录页面
 const goToLogin = () => {
