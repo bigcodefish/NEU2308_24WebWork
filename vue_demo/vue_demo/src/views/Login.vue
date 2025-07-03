@@ -52,6 +52,7 @@
 	import { onMounted, ref } from 'vue';
 	import router from '@/router';
 	import CryptoJS from 'crypto-js'; // 引入加密库
+import axios from 'axios';
 
 	// 表单数据
 	const username = ref('');
@@ -90,7 +91,7 @@
 	});
 
 	// 登录方法（添加记住密码逻辑）
-	const handleLogin = () => {
+	const handleLogin = async () => {
 		if (!username.value || !password.value || !captcha.value) {
 			alert('请填写完整登录信息');
 			return;
@@ -116,17 +117,24 @@
 			localStorage.removeItem('savedCredentials');
 		}
 
-		// 模拟登录成功
-		console.log('登录信息:', {
-			username: username.value,
-			password: '******', // 实际日志不应记录密码
-			remember: rememberPassword.value
-		});
 
-		router.push('/homescreen');
-		alert('登录成功');
-	};
-
+  try {
+    const res = await axios.post('http://localhost:8080/api/auth/login', {
+      username: username.value,
+      password: password.value
+    });
+    
+    if (res.data.success) {
+      alert('登录成功');
+      // 存储token等操作
+      router.push('/homescreen');
+    } else {
+      alert(res.data.message);
+    }
+  } catch (error) {
+    alert('登录失败');
+  }
+};
 	// 跳转注册（保持不变）
 	const goToRegister = () => {
 		router.push('/register');

@@ -1,6 +1,4 @@
 <template>
-	<!-- 模拟数据 -->
-
 	<div class="dashboard-container">
 		<div class="wireframe">
 			<div class="header">
@@ -43,9 +41,9 @@
 						</div>
 					</div>
 
-					<div class="card">
-						<div class="card-title">缺陷类型统计 (共 {{ totalDefects }} 个)</div>
-						<div class="chart-area" ref="pieChart" style="height: 100%; min-height: 200px;"></div>
+					<div class="card" style="min-height: 300px;">
+						<div class="card-title">缺陷类型统计 (共 {{ defectTypeCount }} 种)</div>
+						<div class="chart-area" ref="pieChart" style="height: 100%; min-height: 250px;"></div>
 					</div>
 
 					<div class="card">
@@ -82,27 +80,51 @@
 
 				<!-- 右侧面板 -->
 				<div class="right-panel">
-					<div class="card">
+					<div class="card" style="min-height: auto;">
 						<div class="card-title">缺陷数据统计</div>
 						<div class="stats-grid">
 							<div class="stat-item">
-								<div class="stat-number">{{ defectStats.totalDefects || 0 }}</div>
+								<div class="stat-number large">{{ defectStats.totalDefects || 0 }}</div>
 								<div class="stat-label">累计缺陷数</div>
 							</div>
 							<div class="stat-item">
-								<div class="stat-number">{{ defectStats.confirmedDefects || 0 }}</div>
+								<div class="stat-number large">{{ defectStats.confirmedDefects || 0 }}</div>
 								<div class="stat-label">确认缺陷数</div>
 							</div>
 							<div class="stat-item">
-								<div class="stat-number">{{ defectStats.falseDefects || 0 }}</div>
+								<div class="stat-number large">{{ defectStats.falseDefects || 0 }}</div>
 								<div class="stat-label">误报缺陷数</div>
+							</div>
+						</div>
+						<div class="stats-grid">
+							<div class="stat-item">
+								<div class="stat-number large">{{ processedDefects || 0 }}</div>
+								<div class="stat-label">已处理缺陷</div>
+							</div>
+							<div class="stat-item">
+								<div class="stat-number large">{{ processingRate }}%</div>
+								<div class="stat-label">处理率</div>
+							</div>
+						</div>
+						<div class="stats-grid">
+							<div class="stat-item">
+								<div class="stat-number">{{ severityStats.high || 0 }}</div>
+								<div class="stat-label">严重</div>
+							</div>
+							<div class="stat-item">
+								<div class="stat-number">{{ severityStats.medium || 0 }}</div>
+								<div class="stat-label">一般</div>
+							</div>
+							<div class="stat-item">
+								<div class="stat-number">{{ severityStats.low || 0 }}</div>
+								<div class="stat-label">轻微</div>
 							</div>
 						</div>
 					</div>
 
 					<div class="card">
 						<div class="card-title">每月巡检次数</div>
-						<div class="chart-area">柱状图 - 月度巡检趋势</div>
+						<div class="chart-area">折线图 - 月度巡检趋势</div>
 					</div>
 
 					<div class="card">
@@ -112,11 +134,150 @@
 				</div>
 			</div>
 		</div>
+
+		<!-- 缺陷类型详情模态框 -->
+		<div v-if="defectTypeModalVisible" class="modal" @click.self="closeDefectTypeModal">
+			<div class="modal-content" style="width: 800px; max-height: 80vh;">
+				<span class="close" @click="closeDefectTypeModal">&times;</span>
+				<h3 style="margin-bottom: 20px;">缺陷类型详情 - {{ selectedDefectType }}</h3>
+
+				<div class="defect-stats">
+					<div class="stat-row">
+						<div class="stat-item">
+							<div class="stat-number">{{ defectTypeStats.total }}</div>
+							<div class="stat-label">总数</div>
+						</div>
+						<div class="stat-item">
+							<div class="stat-number">{{ defectTypeStats.confirmed }}</div>
+							<div class="stat-label">已确认</div>
+						</div>
+						<div class="stat-item">
+							<div class="stat-number">{{ defectTypeStats.falseDefects }}</div>
+							<div class="stat-label">误报</div>
+						</div>
+					</div>
+					<div class="stat-row">
+						<div class="stat-item">
+							<div class="stat-number">{{ defectTypeStats.highSeverity }}</div>
+							<div class="stat-label">高严重</div>
+						</div>
+						<div class="stat-item">
+							<div class="stat-number">{{ defectTypeStats.mediumSeverity }}</div>
+							<div class="stat-label">中严重</div>
+						</div>
+						<div class="stat-item">
+							<div class="stat-number">{{ defectTypeStats.lowSeverity }}</div>
+							<div class="stat-label">低严重</div>
+						</div>
+					</div>
+				</div>
+
+				<div class="defect-list">
+					<h4>该类型缺陷记录</h4>
+					<table class="mini-table">
+						<thead>
+							<tr>
+								<th>缺陷编号</th>
+								<th>位置</th>
+								<th>严重程度</th>
+								<th>状态</th>
+								<th>上报时间</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr v-for="defect in recentDefects" :key="defect.id">
+								<td>{{ defect.defectNo || 'DEF-' + defect.id }}</td>
+								<td>{{ defect.location || '-' }}</td>
+								<td>{{ defect.severity || '-' }}</td>
+								<td :class="getStatusClass(defect.status)">{{ defect.status || '-' }}</td>
+								<td>{{ formatDate(defect.reportTime) }}</td>
+							</tr>
+							<tr v-if="recentDefects.length === 0">
+								<td colspan="5" style="text-align: center;">暂无数据</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+			</div>
+		</div>
+
+		<!-- 月度详情模态框模板 -->
+		<div v-if="monthlyModalVisible" class="modal" @click.self="closeMonthlyModal">
+			<div class="modal-content" style="width: 1000px; max-height: 90vh;">
+				<span class="close" @click="closeMonthlyModal">&times;</span>
+				<h3 style="margin-bottom: 20px;">{{ selectedMonth }} 缺陷统计</h3>
+
+				<div class="defect-stats">
+					<div class="stat-row">
+						<div class="stat-item">
+							<div class="stat-number">{{ monthlyStats.total }}</div>
+							<div class="stat-label">总数</div>
+						</div>
+						<div class="stat-item">
+							<div class="stat-number">{{ monthlyStats.confirmed }}</div>
+							<div class="stat-label">已确认</div>
+						</div>
+						<div class="stat-item">
+							<div class="stat-number">{{ monthlyStats.falseDefects }}</div>
+							<div class="stat-label">误报</div>
+						</div>
+					</div>
+					<div class="stat-row">
+						<div class="stat-item">
+							<div class="stat-number">{{ monthlyStats.highSeverity }}</div>
+							<div class="stat-label">高严重</div>
+						</div>
+						<div class="stat-item">
+							<div class="stat-number">{{ monthlyStats.mediumSeverity }}</div>
+							<div class="stat-label">中严重</div>
+						</div>
+						<div class="stat-item">
+							<div class="stat-number">{{ monthlyStats.lowSeverity }}</div>
+							<div class="stat-label">低严重</div>
+						</div>
+					</div>
+				</div>
+
+				<!-- 缺陷列表 -->
+				<div class="defect-list">
+					<h4>全部缺陷记录 (共 {{ monthlyDefects.length }} 条)</h4>
+					<div style="max-height: 500px; overflow-y: auto;">
+						<table class="mini-table">
+							<thead>
+								<tr>
+									<th>缺陷编号</th>
+									<th>类型</th>
+									<th>位置</th>
+									<th>严重程度</th>
+									<th>状态</th>
+									<th>上报时间</th>
+								</tr>
+							</thead>
+							<tbody>
+								<tr v-for="defect in monthlyDefects" :key="defect.id">
+									<td>{{ defect.defectNo || 'DEF-' + defect.id }}</td>
+									<td>{{ defect.defectType || '-' }}</td>
+									<td>{{ defect.location || '-' }}</td>
+									<td>{{ defect.severity || '-' }}</td>
+									<td :class="getStatusClass(defect.status)">
+										{{ defect.status || '-' }}
+									</td>
+									<td>{{ formatDate(defect.reportTime) }}</td>
+								</tr>
+								<tr v-if="monthlyDefects.length === 0">
+									<td colspan="6" style="text-align: center;">暂无数据</td>
+								</tr>
+							</tbody>
+						</table>
+					</div>
+				</div>
+			</div>
+		</div>
 	</div>
 </template>
 
 <script setup lang="ts">
-	import { ref, onMounted, nextTick, computed } from 'vue'
+	import { ref, onMounted, nextTick, computed, onUnmounted, watch } from 'vue'
 	import router from '@/router'
 	import axios from 'axios'
 	import * as echarts from 'echarts'
@@ -127,20 +288,63 @@
 	const defectStats = ref({
 		totalDefects: 0,
 		confirmedDefects: 0,
-		falseDefects: 0
+		falseDefects: 0,
+		highSeverity: 0,
+		mediumSeverity: 0,
+		lowSeverity: 0
 	})
+
+	// 状态数据
+	const defectTypeModalVisible = ref(false)
+	const selectedDefectType = ref('')
+	const defectTypeStats = ref({
+		total: 0,
+		confirmed: 0,
+		falseDefects: 0,
+		highSeverity: 0,
+		mediumSeverity: 0,
+		lowSeverity: 0
+	})
+	const recentDefects = ref<any[]>([])
+
+	// 月度状态数据
+	const monthlyModalVisible = ref(false)
+	const selectedMonth = ref('')
+	const monthlyStats = ref({
+		total: 0,
+		confirmed: 0,
+		falseDefects: 0,
+		highSeverity: 0,
+		mediumSeverity: 0,
+		lowSeverity: 0
+	})
+	const monthlyDefects = ref<any[]>([])
 
 	// 缺陷类型数据
 	const defectTypes = ref<{ type : string; count : number }[]>([])
 	const pieChart = ref<HTMLElement | null>(null)
 
-	// 计算总缺陷数
-	const totalDefects = computed(() => {
-		return defectTypes.value.reduce((sum, item) => sum + item.count, 0)
+	// 计算缺陷类型数量
+	const defectTypeCount = computed(() => {
+		return defectTypes.value.length
 	})
 
 	const lineChart = ref<HTMLElement | null>(null)
 	const monthlyDefectStats = ref<{ month : string; count : number }[]>([])
+
+	// 新增的状态数据
+	const processedDefects = ref(0)
+	const severityStats = ref({
+		high: 0,
+		medium: 0,
+		low: 0
+	})
+
+	// 计算处理率
+	const processingRate = computed(() => {
+		if (defectStats.value.confirmedDefects === 0) return 0
+		return Math.round((processedDefects.value / defectStats.value.confirmedDefects) * 100)
+	})
 
 	const enterSystem = () => {
 		router.push('/system')
@@ -151,6 +355,37 @@
 		try {
 			const res = await axios.get(`${API_URL}/stats`)
 			defectStats.value = res.data
+
+			// 获取已处理缺陷数
+			const fixedRes = await axios.get(API_URL, {
+				params: {
+					status: '已整改'
+				}
+			})
+			processedDefects.value = fixedRes.data.length
+
+			// 获取缺陷等级分布
+			const highRes = await axios.get(API_URL, {
+				params: {
+					severity: '高'
+				}
+			})
+			const mediumRes = await axios.get(API_URL, {
+				params: {
+					severity: '中'
+				}
+			})
+			const lowRes = await axios.get(API_URL, {
+				params: {
+					severity: '低'
+				}
+			})
+
+			severityStats.value = {
+				high: highRes.data.length,
+				medium: mediumRes.data.length,
+				low: lowRes.data.length
+			}
 		} catch (e) {
 			console.error('获取缺陷统计数据失败', e)
 		}
@@ -176,11 +411,10 @@
 	const renderPieChart = () => {
 		if (!pieChart.value || defectTypes.value.length === 0) return
 
-		// 初始化ECharts实例
 		const chart = echarts.init(pieChart.value)
 
 		// 配置项
-		const option = {
+		const option : echarts.EChartsOption = {
 			tooltip: {
 				trigger: 'item',
 				formatter: '{a} <br/>{b}: {c} ({d}%)'
@@ -189,16 +423,23 @@
 				orient: 'vertical',
 				right: 10,
 				top: 'center',
-				data: defectTypes.value.map(item => item.type),
 				textStyle: {
-					color: '#fff'
+					color: '#fff',
+					fontSize: 12
+				},
+				itemWidth: 14,
+				itemHeight: 14,
+				itemGap: 10,
+				formatter: (name) => {
+					const data = defectTypes.value.find(item => item.type === name)
+					return `${name} (${data?.count || 0})`
 				}
 			},
 			series: [
 				{
 					name: '缺陷类型分布',
 					type: 'pie',
-					radius: ['45%', '70%'],
+					radius: ['50%', '70%'],
 					center: ['40%', '50%'],
 					avoidLabelOverlap: false,
 					itemStyle: {
@@ -209,8 +450,22 @@
 						shadowColor: 'rgba(0, 0, 0, 0.5)'
 					},
 					label: {
-						show: false,
-						position: 'center'
+						show: true,
+						formatter: '{b}: {d}%',
+						position: 'outside',
+						alignTo: 'edge',
+						margin: 5,
+						color: '#fff',
+						fontSize: 12
+					},
+					labelLine: {
+						show: true,
+						length: 10,
+						length2: 5,
+						smooth: true,
+						lineStyle: {
+							color: 'rgba(255, 255, 255, 0.3)'
+						}
 					},
 					emphasis: {
 						scale: true,
@@ -220,10 +475,12 @@
 							fontSize: '14',
 							fontWeight: 'bold',
 							color: '#fff'
+						},
+						itemStyle: {
+							shadowBlur: 10,
+							shadowOffsetX: 0,
+							shadowColor: 'rgba(0, 0, 0, 0.5)'
 						}
-					},
-					labelLine: {
-						show: false
 					},
 					data: defectTypes.value.map(item => ({
 						value: item.count,
@@ -232,75 +489,197 @@
 				}
 			],
 			color: [
-				'#36A2DB', '#4BC0C0', '#FFCE56', '#FF9F40', '#FF6384',
-				'#9966FF', '#C9CBCF', '#7EB00F', '#E7B800', '#CC99FF'
-			]
+				'#1E90FF', '#00BFFF', '#87CEFA', '#4682B4', '#4169E1',
+				'#6495ED', '#00CED1', '#5F9EA0', '#20B2AA', '#008B8B'
+			],
+			grid: {
+				top: 0,
+				left: 0,
+				right: 0,
+				bottom: 0,
+				containLabel: true
+			}
 		}
 
-		// 设置配置项并渲染图表
 		chart.setOption(option)
 
-		// 响应窗口大小变化
+		// 添加点击事件
+		chart.on('click', (params : echarts.ECElementEvent) => {
+			const data = params.data as { name : string; value : number }
+			if (data?.name) {
+				selectedDefectType.value = data.name
+					; (async () => {
+						await fetchDefectTypeDetails(data.name)
+						defectTypeModalVisible.value = true
+					})()
+			}
+		})
+
 		window.addEventListener('resize', () => {
 			chart.resize()
 		})
 	}
 
-	// 获取月度缺陷数据方法
-	const fetchMonthlyDefectStats = async () => {
+	// 获取缺陷类型详情
+	const fetchDefectTypeDetails = async (defectType : string) => {
 		try {
-			const res = await axios.get(`${API_URL}/monthly-stats`)
-			monthlyDefectStats.value = res.data.map((item : any) => ({
-				month: item.month,
-				count: item.count
-			}))
+			// 获取统计信息
+			const statsRes = await axios.get(`${API_URL}/type-details`, {
+				params: { defectType }
+			})
+			defectTypeStats.value = statsRes.data
 
-			// 数据获取后渲染折线图
-			renderLineChart()
+			// 获取最近5条记录
+			const recentRes = await axios.get(API_URL, {
+				params: {
+					defectType,
+					pageSize: 5,
+					sortField: 'report_time',
+					sortDirection: 'desc'
+				}
+			})
+			recentDefects.value = recentRes.data
 		} catch (e) {
-			console.error('获取月度缺陷统计数据失败', e)
+			console.error('获取缺陷类型详情失败', e)
+			defectTypeStats.value = {
+				total: 0,
+				confirmed: 0,
+				falseDefects: 0,
+				highSeverity: 0,
+				mediumSeverity: 0,
+				lowSeverity: 0
+			}
+			recentDefects.value = []
 		}
 	}
 
-	// 渲染折线图方法
-	const renderLineChart = () => {
-		if (!lineChart.value || monthlyDefectStats.value.length === 0) return
+	const closeDefectTypeModal = () => {
+		defectTypeModalVisible.value = false
+	}
 
-		// 初始化ECharts实例
-		const chart = echarts.init(lineChart.value)
+	// 从DefectManagement.vue复用的方法
+	function getStatusClass(status : string | null) {
+		if (!status) return ''
+		switch (status) {
+			case '待确认': return 'tag-waiting'
+			case '已确认': return 'tag-info'
+			case '处理中': return 'tag-processing'
+			case '已整改': return 'tag-success'
+			case '已关闭': return 'tag'
+			default: return 'tag'
+		}
+	}
+
+	function formatDate(date : string | Date | null) {
+		if (!date) return ''
+
+		try {
+			const d = date instanceof Date ? date : new Date(date)
+			if (isNaN(d.getTime())) return '无效日期'
+
+			return d.toLocaleString('zh-CN', {
+				year: 'numeric',
+				month: '2-digit',
+				day: '2-digit',
+				hour: '2-digit',
+				minute: '2-digit'
+			}).replace(/\//g, '-')
+		} catch (e) {
+			return '无效日期'
+		}
+	}
+
+	// 获取月度缺陷数据方法
+	const fetchMonthlyDefectStats = async () => {
+		try {
+			const res = await axios.get(`${API_URL}/monthly-stats`);
+			monthlyDefectStats.value = res.data.map((item : any) => ({
+				month: item.month,
+				count: item.count || 0
+			}));
+
+			// 数据获取后渲染图表
+			renderLineChart();
+		} catch (e) {
+			console.error('获取月度缺陷统计数据失败', e);
+			monthlyDefectStats.value = [];
+		}
+	};
+
+	// 面积图
+	const renderLineChart = () => {
+		if (!lineChart.value) {
+			console.error('图表容器未找到');
+			return;
+		}
+
+		// 如果数据为空，显示无数据提示
+		if (!monthlyDefectStats.value || monthlyDefectStats.value.length === 0) {
+			console.error('月度缺陷统计数据为空');
+			const chart = echarts.init(lineChart.value);
+			chart.setOption({
+				title: {
+					text: '暂无数据',
+					left: 'center',
+					top: 'center',
+					textStyle: {
+						color: '#999',
+						fontSize: 14
+					}
+				}
+			});
+			return;
+		}
+
+		const chart = echarts.init(lineChart.value);
 
 		// 准备数据
-		const months = monthlyDefectStats.value.map(item => item.month)
-		const counts = monthlyDefectStats.value.map(item => item.count)
+		const months = monthlyDefectStats.value.map(item => item.month);
+		const counts = monthlyDefectStats.value.map(item => item.count);
 
-		// 配置项
+		// 配置项 - 面积图
 		const option = {
 			tooltip: {
 				trigger: 'axis',
-				formatter: '{b}: {c}个',
-				backgroundColor: 'rgba(0,0,0,0.7)',
+				formatter: '{b}<br/>缺陷数量: {c}个',
+				backgroundColor: 'rgba(0,0,0,0.8)',
 				borderColor: '#00a8e8',
+				borderWidth: 1,
 				textStyle: {
-					color: '#fff'
+					color: '#fff',
+					fontSize: 12
+				},
+				axisPointer: {
+					type: 'shadow',
+					shadowStyle: {
+						color: 'rgba(0, 168, 232, 0.2)'
+					}
 				}
 			},
 			grid: {
 				left: '3%',
 				right: '4%',
-				bottom: '3%',
+				bottom: '10%',
 				top: '5%',
 				containLabel: true
 			},
 			xAxis: {
 				type: 'category',
+				boundaryGap: false,
 				data: months,
 				axisLine: {
 					lineStyle: {
-						color: '#00a8e8'
+						color: '#00a8e8',
+						width: 1
 					}
 				},
 				axisLabel: {
-					color: '#aaa'
+					color: '#aaa',
+					fontSize: 10,
+					rotate: 30
+				},
+				axisTick: {
+					alignWithLabel: true
 				}
 			},
 			yAxis: {
@@ -308,48 +687,122 @@
 				axisLine: {
 					show: true,
 					lineStyle: {
-						color: '#00a8e8'
+						color: '#00a8e8',
+						width: 1
 					}
 				},
 				axisLabel: {
-					color: '#aaa'
+					color: '#aaa',
+					fontSize: 10
 				},
 				splitLine: {
 					lineStyle: {
-						color: 'rgba(0, 168, 232, 0.1)'
+						color: 'rgba(0, 168, 232, 0.1)',
+						type: 'dashed'
 					}
-				}
+				},
+				minInterval: 1
 			},
-			series: [
-				{
-					name: '缺陷数量',
-					type: 'line',
-					data: counts,
-					smooth: true,
-					lineStyle: {
-						width: 3,
-						color: '#36A2DB'
-					},
+			series: [{
+				name: '缺陷数量',
+				type: 'line',
+				stack: '总量',
+				areaStyle: {
+					color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+						{ offset: 0, color: 'rgba(0, 168, 232, 0.5)' },
+						{ offset: 1, color: 'rgba(0, 168, 232, 0.1)' }
+					])
+				},
+				emphasis: {
+					focus: 'series',
 					itemStyle: {
-						color: '#36A2DB'
-					},
-					areaStyle: {
-						color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-							{ offset: 0, color: 'rgba(54, 162, 219, 0.5)' },
-							{ offset: 1, color: 'rgba(54, 162, 219, 0.1)' }
-						])
+						color: '#FFA500' // 高亮颜色
 					}
+				},
+				data: counts,
+				smooth: true,
+				symbol: 'circle',
+				symbolSize: 6,
+				showSymbol: true,
+				lineStyle: {
+					width: 2,
+					color: '#00a8e8'
+				},
+				itemStyle: {
+					color: '#00a8e8',
+					borderColor: '#fff',
+					borderWidth: 1
 				}
-			]
+			}],
+			color: ['#00a8e8']
+		};
+
+		chart.setOption(option);
+
+		// 修点击事件处理 - 更可靠的实现
+		chart.off('click'); // 先移除旧的事件
+		chart.on('click', (params) => {
+			if (params.componentType === 'series') {
+				const month = months[params.dataIndex];
+				console.log('点击月份:', month); // 调试日志
+				selectedMonth.value = month;
+				fetchMonthlyDetails(month).then(() => {
+					console.log('获取到的数据:', monthlyDefects.value); // 调试日志
+					monthlyModalVisible.value = true;
+				}).catch(error => {
+					console.error('获取详情失败:', error);
+				});
+			}
+		});
+
+		// 窗口大小变化时重绘
+		const resizeHandler = () => chart.resize();
+		window.addEventListener('resize', resizeHandler);
+		onUnmounted(() => {
+			window.removeEventListener('resize', resizeHandler);
+			chart.dispose();
+		});
+	};
+
+	// 获取月度缺陷详情方法
+	const fetchMonthlyDetails = async (month : string) => {
+		try {
+			console.log(`正在获取 ${month} 的数据...`); // 调试日志
+			const res = await axios.get(`${API_URL}/monthly-details`, {
+				params: { month, pageSize: 1000 }
+			});
+
+			console.log('接口响应数据:', res.data); // 调试日志
+
+			if (res.data) {
+				monthlyStats.value = {
+					total: res.data.stats?.totalDefects || 0,
+					confirmed: res.data.stats?.confirmedDefects || 0,
+					falseDefects: res.data.stats?.falseDefects || 0,
+					highSeverity: res.data.stats?.highSeverity || 0,
+					mediumSeverity: res.data.stats?.mediumSeverity || 0,
+					lowSeverity: res.data.stats?.lowSeverity || 0
+				};
+
+				monthlyDefects.value = res.data.defects || [];
+				console.log('处理后的数据:', monthlyDefects.value); // 调试日志
+			}
+		} catch (e) {
+			console.error('获取月度缺陷详情失败', e);
+			monthlyStats.value = {
+				total: 0,
+				confirmed: 0,
+				falseDefects: 0,
+				highSeverity: 0,
+				mediumSeverity: 0,
+				lowSeverity: 0
+			};
+			monthlyDefects.value = [];
 		}
+	};
 
-		// 设置配置项并渲染图表
-		chart.setOption(option)
-
-		// 响应窗口大小变化
-		window.addEventListener('resize', () => {
-			chart.resize()
-		})
+	const closeMonthlyModal = () => {
+		monthlyModalVisible.value = false
 	}
 
 	onMounted(() => {
@@ -474,6 +927,11 @@
 		color: #00a8e8;
 	}
 
+	.stat-number.large {
+		font-size: 22px;
+		padding: 5px 0;
+	}
+
 	.stat-label {
 		font-size: 12px;
 		margin-top: 5px;
@@ -492,7 +950,6 @@
 		flex: 1;
 		min-height: 150px;
 		overflow: hidden;
-		/* 防止图表溢出 */
 	}
 
 	.center-stats {
@@ -545,5 +1002,189 @@
 		left: 20px;
 		font-size: 12px;
 		color: #999;
+	}
+
+	.modal {
+		position: fixed;
+		z-index: 1000;
+		left: 0;
+		top: 0;
+		width: 100%;
+		height: 100%;
+		background-color: rgba(0, 0, 0, 0.8);
+		display: flex;
+		justify-content: center;
+		align-items: center;
+	}
+
+	.modal-content {
+		position: relative;
+		background: #0a1a2a;
+		padding: 20px;
+		border-radius: 5px;
+		max-width: 90%;
+		max-height: 90%;
+		overflow: auto;
+		border: 1px solid #00a8e8;
+		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+	}
+
+	.close {
+		position: absolute;
+		top: 10px;
+		right: 15px;
+		font-size: 28px;
+		font-weight: bold;
+		cursor: pointer;
+		color: #00a8e8;
+		transition: color 0.2s;
+	}
+
+	.close:hover {
+		color: #fff;
+	}
+
+	.defect-stats {
+		margin-bottom: 20px;
+		padding: 15px;
+		background: rgba(0, 168, 232, 0.1);
+		border-radius: 4px;
+	}
+
+	.stat-row {
+		display: flex;
+		justify-content: space-around;
+		margin-bottom: 10px;
+	}
+
+	.stat-item {
+		text-align: center;
+		padding: 10px;
+		flex: 1;
+	}
+
+	.stat-number {
+		font-size: 24px;
+		font-weight: bold;
+		color: #00a8e8;
+	}
+
+	.stat-label {
+		font-size: 14px;
+		color: #aaa;
+	}
+
+	.defect-list {
+		margin-top: 20px;
+	}
+
+	.mini-table {
+		width: 100%;
+		border-collapse: collapse;
+		font-size: 14px;
+	}
+
+	.mini-table th,
+	.mini-table td {
+		border: 1px solid #1a3a5a;
+		padding: 8px 12px;
+		text-align: left;
+	}
+
+	.mini-table th {
+		background: rgba(0, 168, 232, 0.2);
+		color: #00a8e8;
+	}
+
+	.mini-table tbody tr:nth-child(even) {
+		background: rgba(0, 168, 232, 0.05);
+	}
+
+	.mini-table tbody tr:hover {
+		background: rgba(0, 168, 232, 0.1);
+	}
+
+	.tag {
+		display: inline-block;
+		padding: 2px 6px;
+		border-radius: 3px;
+		font-size: 12px;
+	}
+
+	.tag-waiting {
+		background: #e0e0e0;
+		color: #333;
+	}
+
+	.tag-info {
+		background: #d1ecf1;
+		color: #0c5460;
+	}
+
+	.tag-processing {
+		background: #e2f0fb;
+		color: #0a58ca;
+	}
+
+	.tag-success {
+		background: #d4edda;
+		color: #155724;
+	}
+
+	.modal-content {
+		background: #0a1a2a;
+		color: #e0e0e0;
+	}
+
+	.detail-row {
+		color: #e0e0e0;
+	}
+
+	.detail-label {
+		color: #00a8e8;
+	}
+
+	.mini-table {
+		color: #e0e0e0;
+	}
+
+	.mini-table th {
+		background: rgba(0, 168, 232, 0.3);
+	}
+
+	.mini-table td {
+		border-color: #1a3a5a;
+	}
+
+	.tag-waiting {
+		background: #e0e0e0;
+		color: #333;
+		padding: 2px 6px;
+		border-radius: 3px;
+		font-size: 12px;
+	}
+
+	.tag-info {
+		background: #d1ecf1;
+		color: #0c5460;
+		padding: 2px 6px;
+		border-radius: 3px;
+		font-size: 12px;
+	}
+
+	.tag-processing {
+		background: #e2f0fb;
+		color: #0a58ca;
+		padding: 2px 6px;
+		border-radius: 3px;
+		font-size: 12px;
+	}
+
+	.tag-success {
+		background: #d4edda;
+		color: #155724;
+		padding: 2px 6px;
+		border-radius: 3px;
+		font-size: 12px;
 	}
 </style>
