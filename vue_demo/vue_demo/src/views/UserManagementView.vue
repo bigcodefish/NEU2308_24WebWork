@@ -131,7 +131,11 @@
       <el-table-column prop="id" label="用户ID" width="80" sortable align="center" />
       <el-table-column prop="username" label="用户名" width="120" sortable />
       <el-table-column prop="name" label="姓名" width="100" sortable />
-      <el-table-column prop="departmentName" label="部门" width="120" />
+      <el-table-column label="部门" width="120">
+        <template #default="{ row }">
+          {{ getDepartmentName(row.departmentId) }}
+        </template>
+      </el-table-column>
       <el-table-column prop="phone" label="手机号" width="120" />
       <el-table-column prop="email" label="邮箱" width="180" />
       <el-table-column label="状态" width="100" sortable align="center">
@@ -244,9 +248,9 @@
         </el-form-item>
         <el-form-item label="状态" prop="status">
           <el-radio-group v-model="formData.status">
-            <el-radio label="0">正常</el-radio>
-            <el-radio label="1">禁用</el-radio>
-            <el-radio label="2">锁定</el-radio>
+           <el-radio :value="0">正常</el-radio>
+               <el-radio :value="1">禁用</el-radio>
+               <el-radio :value="2">锁定</el-radio>
           </el-radio-group>
         </el-form-item>
         <el-form-item label="角色" prop="roleIds">
@@ -282,47 +286,46 @@
       </template>
     </el-dialog>
 
-    <!-- 重置密码对话框 -->
-    <el-dialog 
-      v-model="resetPasswordDialogVisible" 
-      title="重置密码" 
-      width="400px"
-      :close-on-click-modal="false"
-    >
-      <el-form 
-        ref="resetPasswordForm" 
-        :model="resetPasswordForm" 
-        :rules="resetPasswordRules"
-        label-width="100px"
-      >
-        <el-form-item label="新密码" prop="newPassword">
-          <el-input
-            v-model="resetPasswordForm.newPassword"
-            type="password"
-            show-password
-            placeholder="请输入新密码"
-          />
-        </el-form-item>
-        <el-form-item label="确认密码" prop="confirmPassword">
-          <el-input
-            v-model="resetPasswordForm.confirmPassword"
-            type="password"
-            show-password
-            placeholder="请再次输入密码"
-          />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="resetPasswordDialogVisible = false">取消</el-button>
-        <el-button 
-          type="primary" 
-          @click="submitResetPassword"
-          :loading="passwordSubmitting"
-        >
-          确定
-        </el-button>
-      </template>
-    </el-dialog>
+ <!-- 重置密码对话框（精简正确版） -->
+ <el-dialog 
+   v-model="resetPasswordDialogVisible" 
+   title="重置密码" 
+   width="400px"
+ >
+   <el-form 
+     ref="resetPasswordFormRef"
+     :model="resetPasswordForm"
+     :rules="resetPasswordRules"
+     label-width="100px"
+   >
+     <el-form-item label="新密码" prop="newPassword">
+       <el-input
+         v-model="resetPasswordForm.newPassword"
+         type="password"
+         show-password
+       />
+     </el-form-item>
+     <el-form-item label="确认密码" prop="confirmPassword">
+       <el-input
+         v-model="resetPasswordForm.confirmPassword"
+         type="password"
+         show-password
+       />
+     </el-form-item>
+   </el-form>
+   
+   <template #footer>
+     <span class="dialog-footer">
+       <el-button @click="resetPasswordDialogVisible = false">取消</el-button>
+       <el-button 
+         type="primary" 
+         @click="submitResetPassword"
+       >
+         确定
+       </el-button>
+     </span>
+   </template>
+ </el-dialog>
 
     <!-- 分配角色对话框 -->
     <el-dialog 
@@ -356,13 +359,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, nextTick } from 'vue'
 import { 
   ElMessage, 
   ElMessageBox, 
   type FormInstance, 
   type FormRules,
-  type UploadProps
 } from 'element-plus'
 import { 
   Plus, 
@@ -382,46 +384,56 @@ import {
 import axios from 'axios'
 import dayjs from 'dayjs'
 
-// 1. 创建配置好的axios实例
+// 修改后的axios配置
 const apiClient = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080',
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json'
-  },
-  transformRequest: [function (data) {
-    return JSON.stringify(data)
-  }],
-  transformResponse: [function (data) {
-    try {
-      return JSON.parse(data)
-    } catch (error) {
-      console.error('JSON解析失败:', error)
-      return data
-    }
-  }]
+  }
 })
 
-// 2. 添加响应拦截器
+// 添加请求拦截器
+apiClient.interceptors.request.use(config => {
+  // 确保不携带第三方API请求
+  if (config.url?.includes('ipify.org')) {
+    throw new Error('Blocked external API request')
+  }
+  return config
+})
+
+// 添加响应拦截器
 apiClient.interceptors.response.use(
   response => {
-    if (response.data?.code !== undefined && response.data.code !== 200) {
-      return Promise.reject(new Error(response.data.message || '请求失败'))
-    }
-    return response.data?.data !== undefined ? response.data.data : response.data
+    // 处理后端返回的真实数据（根据你的实际返回结构调整）
+    return response.data?.data || response.data
   },
   error => {
-    console.error('请求出错:', error)
-    const errMsg = error.response?.data?.message || 
-                  error.message || 
-                  '网络请求失败'
-    ElMessage.error(errMsg)
+    // 统一错误处理
+    if (error.response) {
+      switch (error.response.status) {
+        case 401:
+          ElMessage.error('请先登录')
+          break
+        case 403:
+          ElMessage.error('没有操作权限')
+          break
+        case 500:
+          ElMessage.error('服务器内部错误')
+          break
+        default:
+          ElMessage.error(`请求失败: ${error.message}`)
+      }
+    } else if (error.request) {
+      ElMessage.error('网络连接异常，请检查网络')
+    } else {
+      ElMessage.error(`请求配置错误: ${error.message}`)
+    }
     return Promise.reject(error)
   }
 )
 
-// 类型定义
 interface User {
   id: number
   username: string
@@ -429,14 +441,12 @@ interface User {
   name: string
   email: string
   phone: string
-  departmentId: number | null
-  departmentName: string
-  status: string
+  departmentId: number
+  status: string  // 注意后端返回的是"A"/"I"，不是"0"/"1"
   lastLoginTime: string | null
   createTime: string
-  updateTime: string | null
-  roleIds: number[]
-  roleNames?: string[]
+  roleIds?: number[] | null
+  roleNames?: string[] | null
 }
 
 interface Department {
@@ -449,7 +459,7 @@ interface Role {
   name: string
 }
 
-// 3. 状态变量定义
+// 状态变量
 const tableData = ref<User[]>([])
 const selectedRows = ref<User[]>([])
 const currentPage = ref(1)
@@ -490,8 +500,7 @@ const formData = reactive({
 const formRules = reactive<FormRules>({
   username: [
     { required: true, message: '请输入用户名', trigger: 'blur' },
-    { min: 4, max: 20, message: '长度在4到20个字符', trigger: 'blur' },
-    { pattern: /^[a-zA-Z0-9_]+$/, message: '只能包含字母、数字和下划线', trigger: 'blur' }
+    { min: 4, max: 20, message: '长度在4到20个字符', trigger: 'blur' }
   ],
   name: [
     { required: true, message: '请输入姓名', trigger: 'blur' },
@@ -516,13 +525,16 @@ const departmentOptions = ref<Department[]>([])
 const roleOptions = ref<Role[]>([])
 
 const resetPasswordDialogVisible = ref(false)
-const resetPasswordForm = reactive({
-  userId: 0,
+const resetPasswordForm = ref({
+  userId : 0,
   newPassword: '',
   confirmPassword: ''
-})
+});
+// 表单引用
+const resetPasswordFormRef = ref<FormInstance>()
 
-const resetPasswordRules = reactive<FormRules>({
+// 定义 resetPasswordRules
+const resetPasswordRules = reactive({
   newPassword: [
     { required: true, message: '请输入新密码', trigger: 'blur' },
     { min: 6, max: 20, message: '长度在6到20个字符', trigger: 'blur' }
@@ -531,8 +543,8 @@ const resetPasswordRules = reactive<FormRules>({
     { required: true, message: '请确认密码', trigger: 'blur' },
     {
       validator: (rule, value, callback) => {
-        if (value !== resetPasswordForm.newPassword) {
-          callback(new Error('两次输入密码不一致'))
+        if (value !== resetPasswordForm.value.newPassword) {
+          callback(new Error('两次输入的密码不一致'))
         } else {
           callback()
         }
@@ -542,12 +554,13 @@ const resetPasswordRules = reactive<FormRules>({
   ]
 })
 
+
 const assignRolesDialogVisible = ref(false)
 const selectedRoleIds = ref<number[]>([])
 const currentAssignUserId = ref(0)
 
-// 4. 工具函数
-const formatDate = (dateString: string | null) => {
+// 工具函数
+const formatDate = (dateString: string | undefined) => {
   if (!dateString) return ''
   return dayjs(dateString).format('YYYY-MM-DD HH:mm:ss')
 }
@@ -570,33 +583,75 @@ const getStatusTagType = (status: string) => {
   }
 }
 
-// 5. API请求方法
+const getDepartmentName = (id: number | null) => {
+  if (!id) return '未分配'
+  const dept = departmentOptions.value.find(d => d.id === id)
+  return dept ? dept.name : '未知部门'
+}
+
 const fetchUserList = async () => {
   try {
-    loading.value = true
-    const response = await apiClient.get('/api/users', {
-      params: {
-        ...searchParams,
-        page: currentPage.value,
-        size: pageSize.value
-      }
-    })
+    loading.value = true;
     
-    tableData.value = Array.isArray(response?.list) ? response.list : []
-    total.value = response?.total || 0
+    // 构造查询参数（过滤undefined值）
+    const params = {
+      username: searchParams.username || undefined,
+      name: searchParams.name || undefined,
+      phone: searchParams.phone || undefined,
+      email: searchParams.email || undefined,
+      departmentId: searchParams.departmentId || undefined,
+      status: searchParams.status || undefined,
+      startTime: searchParams.startTime || undefined,
+      endTime: searchParams.endTime || undefined,
+      page: currentPage.value,
+      size: pageSize.value
+    };
+
+    // 过滤掉undefined参数
+    const filteredParams = Object.fromEntries(
+      Object.entries(params).filter(([_, v]) => v !== undefined)
+    );
+
+    // 发送请求
+    const response = await apiClient.get('/api/users', { 
+      params: filteredParams,
+      // 添加请求取消令牌（可选）
+      cancelToken: new axios.CancelToken(c => {
+        // 可以在这里保存cancel函数用于取消请求
+      })
+    });
+
+    // 关键修改：直接使用返回的数组（根据你的curl测试结果）
+    const users = Array.isArray(response) ? response : [];
+    
+    // 处理数据（添加departmentName等前端需要的字段）
+    tableData.value = users.map(user => ({
+      ...user,
+      // 添加部门名称显示
+      departmentName: departmentOptions.value.find(d => d.id === user.departmentId)?.name || '未分配',
+      // 确保roleIds是数组
+      roleIds: Array.isArray(user.roleIds) ? user.roleIds : []
+    }));
+
+    // 设置总数（如果是分页接口，应该从响应头或响应体中获取total）
+    total.value = users.length; // 如果没有分页信息，使用数组长度
+
   } catch (error) {
-    tableData.value = []
-    total.value = 0
-    console.error('获取用户列表失败:', error)
+    if (!axios.isCancel(error)) {
+      ElMessage.error('获取用户列表失败');
+      console.error('获取用户列表失败:', error);
+      tableData.value = [];
+      total.value = 0;
+    }
   } finally {
-    loading.value = false
+    loading.value = false;
   }
-}
+};
 
 const fetchDepartments = async () => {
   try {
     const response = await apiClient.get('/api/departments')
-    departmentOptions.value = Array.isArray(response) ? response : []
+    departmentOptions.value = response || []
   } catch (error) {
     departmentOptions.value = []
     console.error('获取部门列表失败:', error)
@@ -606,30 +661,28 @@ const fetchDepartments = async () => {
 const fetchRoles = async () => {
   try {
     const response = await apiClient.get('/api/roles')
-    roleOptions.value = Array.isArray(response) ? response : []
+    roleOptions.value = response || []
   } catch (error) {
     roleOptions.value = []
     console.error('获取角色列表失败:', error)
   }
 }
 
-// 6. 操作函数
+// 操作方法
 const handleSearch = () => {
   currentPage.value = 1
   fetchUserList()
 }
 
 const handleReset = () => {
-  Object.assign(searchParams, {
-    username: '',
-    name: '',
-    phone: '',
-    email: '',
-    status: '',
-    departmentId: null,
-    startTime: '',
-    endTime: ''
-  })
+  searchParams.username = ''
+  searchParams.name = ''
+  searchParams.phone = ''
+  searchParams.email = ''
+  searchParams.status = ''
+  searchParams.departmentId = null
+  searchParams.startTime = ''
+  searchParams.endTime = ''
   handleSearch()
 }
 
@@ -653,40 +706,108 @@ const handleCurrentChange = (page: number) => {
 }
 
 const handleAdd = () => {
-  isEditMode.value = false
-  dialogTitle.value = '新增用户'
-  resetForm()
-  dialogVisible.value = true
-}
+  isEditMode.value = false;
+  dialogTitle.value = '新增用户';
+  dialogVisible.value = true; // 先显示对话框
+  nextTick(() => {
+    resetForm(); // 在下一个DOM更新周期重置表单
+  });
+};
 
 const handleEdit = async (id?: number) => {
-  const userId = id || selectedRows.value[0]?.id
-  if (!userId) return
+  const userId = id || selectedRows.value[0]?.id;
+  if (!userId) return;
 
   try {
-    loading.value = true
-    const user = await apiClient.get(`/api/users/${userId}`)
+    loading.value = true;
+    // 获取用户基本信息
+    const user = await apiClient.get(`/api/users/${userId}`);
+    
+    // 获取角色ID - 修改这里
+    const roleIds = await apiClient.get(`/api/users/${userId}/roles`); // 使用正确接口
+    
     Object.assign(formData, {
       ...user,
-      roleIds: user.roleIds || []
-    })
-    isEditMode.value = true
-    dialogTitle.value = '编辑用户'
-    dialogVisible.value = true
+      roleIds: roleIds || []
+    });
+    
+    isEditMode.value = true;
+    dialogTitle.value = '编辑用户';
+    dialogVisible.value = true;
   } catch (error) {
-    ElMessage.error('获取用户信息失败')
-    console.error(error)
+    ElMessage.error('获取用户信息失败');
+    console.error(error);
   } finally {
-    loading.value = false
+    loading.value = false;
   }
-}
+};
+const resetForm = () => {
+  Object.assign(formData, {
+    id: 0,
+    username: '',
+    name: '',
+    email: '',
+    phone: '',
+    departmentId: null,
+    status: '0',
+    roleIds: [],
+    password: '123456'
+  });
+  nextTick(() => {
+    userForm.value?.clearValidate(); // 清除校验状态
+  });
+};
+
+const submitForm = async () => {
+  try {
+    await userForm.value?.validate();
+    formSubmitting.value = true;
+
+    // 构造请求数据（新增时不带id字段）
+    const payload = {
+      username: formData.username,
+      password: formData.password, // 确保包含密码
+      name: formData.name,
+      email: formData.email,
+      phone: formData.phone,
+      departmentId: formData.departmentId,
+      status: formData.status,
+      roleIds: formData.roleIds
+    };
+
+    if (isEditMode.value) {
+      // 编辑模式包含ID
+      await apiClient.put(`/api/users/${formData.id}`, {
+        ...payload,
+        id: formData.id
+      });
+      ElMessage.success('更新成功');
+    } else {
+      // 新增模式
+      const response = await apiClient.post('/api/users', payload);
+      console.log('创建响应:', response);
+      ElMessage.success(`用户创建成功，ID: ${response.id}`);
+    }
+    
+    dialogVisible.value = false;
+    await fetchUserList();
+  } catch (error) {
+    console.error('完整错误:', error);
+    let errorMsg = error.response?.data?.message || error.message;
+    // 处理特定错误信息
+    if (errorMsg.includes('唯一约束') ){
+      errorMsg = '用户ID冲突，请联系管理员重置数据库序列';
+    }
+    ElMessage.error(`操作失败: ${errorMsg}`);
+  } finally {
+    formSubmitting.value = false;
+  }
+};
 
 const handleDelete = async (id: number) => {
   try {
     await ElMessageBox.confirm('确定要删除该用户吗？', '提示', {
-      type: 'warning',
-      confirmButtonText: '确定',
-      cancelButtonText: '取消'
+      type: 'warning'
     })
     await apiClient.delete(`/api/users/${id}`)
     ElMessage.success('删除成功')
@@ -701,9 +822,7 @@ const handleBatchDelete = async () => {
 
   try {
     await ElMessageBox.confirm(`确定要删除选中的 ${selectedRows.value.length} 个用户吗？`, '提示', {
-      type: 'warning',
-      confirmButtonText: '确定',
-      cancelButtonText: '取消'
+      type: 'warning'
     })
     loading.value = true
     await apiClient.post('/api/users/batch-delete', {
@@ -719,80 +838,23 @@ const handleBatchDelete = async () => {
   }
 }
 
-const handleExport = async () => {
-  try {
-    loading.value = true
-    const response = await apiClient.get('/api/users/export', {
-      responseType: 'blob',
-      params: searchParams
-    })
-    
-    const url = window.URL.createObjectURL(new Blob([response]))
-    const link = document.createElement('a')
-    link.href = url
-    link.setAttribute('download', `用户列表_${dayjs().format('YYYYMMDDHHmmss')}.xlsx`)
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-  } catch (error) {
-    ElMessage.error('导出失败')
-    console.error(error)
-  } finally {
-    loading.value = false
-  }
-}
-
-const resetForm = () => {
-  if (userForm.value) {
-    userForm.value.resetFields()
-  }
-  Object.assign(formData, {
-    id: 0,
-    username: '',
-    name: '',
-    email: '',
-    phone: '',
-    departmentId: null,
-    status: '0',
-    roleIds: [],
-    password: '123456'
-  })
-}
-
-const submitForm = async () => {
-  try {
-    await userForm.value?.validate()
-    formSubmitting.value = true
-    
-    if (isEditMode.value) {
-      await apiClient.put(`/api/users/${formData.id}`, formData)
-      ElMessage.success('更新成功')
-    } else {
-      await apiClient.post('/api/users', formData)
-      ElMessage.success('新增成功')
-    }
-    
-    dialogVisible.value = false
-    fetchUserList()
-  } catch (error) {
-    console.error('表单提交失败:', error)
-  } finally {
-    formSubmitting.value = false
-  }
-}
-
 const handleResetPassword = (userId: number) => {
-  resetPasswordForm.userId = userId
-  resetPasswordForm.newPassword = ''
-  resetPasswordForm.confirmPassword = ''
+  resetPasswordForm.value.userId = userId
+  resetPasswordForm.value.newPassword = ''
+  resetPasswordForm.value.confirmPassword = ''
   resetPasswordDialogVisible.value = true
 }
 
+// 提交重置密码
 const submitResetPassword = async () => {
   try {
-    await apiClient.put(`/api/users/${resetPasswordForm.userId}/password`, {
-      newPassword: resetPasswordForm.newPassword
+    await resetPasswordFormRef.value?.validate()
+    passwordSubmitting.value = true
+    
+    await apiClient.put(`/api/users/${resetPasswordForm.value.userId}/password`, {
+      newPassword: resetPasswordForm.value.newPassword
     })
+    
     ElMessage.success('密码重置成功')
     resetPasswordDialogVisible.value = false
   } catch (error) {
@@ -802,13 +864,26 @@ const submitResetPassword = async () => {
     passwordSubmitting.value = false
   }
 }
+// 关闭对话框时调用
+const closeResetPasswordDialog = () => {
+  resetPasswordDialogVisible.value = false;
+  // 重置表单内容
+  resetPasswordForm.value = {
+    userId: 0,
+    newPassword: '',
+    confirmPassword: ''
+  };
+  // 清除验证状态
+  resetPasswordFormRef.value?.clearValidate();
+};
+
 
 const handleAssignRoles = async (userId: number) => {
   currentAssignUserId.value = userId
   try {
     loading.value = true
-    const user = await apiClient.get(`/api/users/${userId}`)
-    selectedRoleIds.value = user.roleIds || []
+    const roleIds = await apiClient.get(`/api/users/${userId}/role-ids`)
+    selectedRoleIds.value = roleIds || []
     assignRolesDialogVisible.value = true
   } catch (error) {
     ElMessage.error('获取用户角色失败')
@@ -837,9 +912,7 @@ const submitAssignRoles = async () => {
 
 const handleChangeStatus = async (userId: number, newStatus: string) => {
   try {
-    await apiClient.patch(`/api/users/${userId}/status`, {
-      status: newStatus
-    })
+    await apiClient.patch(`/api/users/${userId}/status?status=${newStatus}`)
     ElMessage.success('状态更新成功')
     fetchUserList()
   } catch (error) {
@@ -848,7 +921,45 @@ const handleChangeStatus = async (userId: number, newStatus: string) => {
   }
 }
 
-// 7. 生命周期钩子
+
+const handleExport = async () => {
+  try {
+    loading.value = true;
+
+    // 手动构造干净的查询参数对象
+    const exportParams = {
+      ...(searchParams.username && { username: searchParams.username }),
+      ...(searchParams.name && { name: searchParams.name }),
+      ...(searchParams.phone && { phone: searchParams.phone }),
+      ...(searchParams.email && { email: searchParams.email }),
+      ...(searchParams.status && { status: searchParams.status }),
+      ...(searchParams.departmentId && { departmentId: searchParams.departmentId }),
+      ...(searchParams.startTime && { startTime: searchParams.startTime }),
+      ...(searchParams.endTime && { endTime: searchParams.endTime }),
+    };
+
+    const response = await apiClient.get('/api/users/user-export', {
+      params: exportParams,
+      responseType: 'blob'
+    });
+
+    const url = window.URL.createObjectURL(new Blob([response]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `用户列表_${dayjs().format('YYYYMMDDHHmmss')}.xlsx`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  } catch (error) {
+    ElMessage.error('导出失败');
+    console.error(error);
+  } finally {
+    loading.value = false;
+  }
+};
+
+
+// 初始化
 onMounted(() => {
   fetchUserList()
   fetchDepartments()

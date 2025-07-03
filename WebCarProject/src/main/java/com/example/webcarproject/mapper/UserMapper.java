@@ -79,4 +79,38 @@ public interface UserMapper {
 
     @Select("SELECT role_id FROM user_role_relation WHERE user_id = #{userId}")
     List<Long> selectRoleIdsByUserId(Long userId);
+
+    @Delete("<script>" +
+            "DELETE FROM user_info WHERE id IN " +
+            "<foreach collection='ids' item='id' open='(' separator=',' close=')'>" +
+            "   #{id}" +
+            "</foreach>" +
+            "</script>")
+    int batchDeleteUsers(@Param("ids") List<Long> ids);
+
+    @Select("<script>" +
+            "SELECT * FROM user_info " +
+            "<where>" +
+            "   <if test='username != null and username != \"\"'> AND username LIKE CONCAT('%', #{username}, '%') </if>" +
+            "   <if test='name != null and name != \"\"'> AND name LIKE CONCAT('%', #{name}, '%') </if>" +
+            "   <if test='phone != null and phone != \"\"'> AND phone LIKE CONCAT('%', #{phone}, '%') </if>" +
+            "   <if test='email != null and email != \"\"'> AND email LIKE CONCAT('%', #{email}, '%') </if>" +
+            "   <if test='departmentId != null'> AND department_id = #{departmentId} </if>" +
+            "   <if test='status != null and status != \"\"'> AND status = #{status} </if>" +
+            "   <if test='startTime != null'> AND create_time &gt;= #{startTime} </if>" +
+            "   <if test='endTime != null'> AND create_time &lt;= #{endTime} </if>" +
+            "</where>" +
+            "</script>")
+
+    List<User> selectByConditionForExport(
+            @Param("username") String username,
+            @Param("name") String name,
+            @Param("phone") String phone,
+            @Param("email") String email,
+            @Param("status") String status,
+            @Param("departmentId") Long departmentId,
+            @Param("startTime") Date startTime,
+            @Param("endTime") Date endTime
+    );
+
 }
