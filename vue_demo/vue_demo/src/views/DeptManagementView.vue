@@ -33,26 +33,31 @@
     </div>
 
     <!-- 部门树 -->
-    <div class="tree-container">
-      <el-tree
-        :data="deptTreeData"
-        :props="treeProps"
-        node-key="id"
-        highlight-current
-        @node-click="handleNodeClick"
-      >
-        <template #default="{ node, data }">
-          <span class="custom-tree-node">
-            <span>{{ data.name }}</span>
-            <span class="tree-actions">
-              <el-button link type="primary" @click.stop="handleAddSub(data.id)">
-                <el-icon><FolderAdd /></el-icon>添加子部门
-              </el-button>
-            </span>
-          </span>
-        </template>
-      </el-tree>
-    </div>
+    <div class="dept-container">
+         <div 
+           v-for="dept in deptTreeData" 
+           :key="dept.id"
+           class="dept-item"
+         >
+           <div class="dept-parent" @click="toggleDept(dept)">
+             <span>{{ dept.name }}</span>
+             <el-icon :class="{ 'rotate-icon': dept.expanded }">
+               <ArrowDown />
+             </el-icon>
+           </div>
+           
+           <div v-show="dept.expanded" class="dept-children">
+             <div 
+               v-for="child in dept.children" 
+               :key="child.id"
+               class="dept-child"
+               @click.stop="handleDeptSelect(child)"
+             >
+               {{ child.name }}
+             </div>
+           </div>
+         </div>
+       </div>
 
     <!-- 新增/编辑对话框 -->
     <el-dialog v-model="dialogVisible" :title="dialogTitle" width="50%">
@@ -86,7 +91,7 @@
 import { ref, onMounted } from 'vue'
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
-import { Plus, Refresh, FolderAdd } from '@element-plus/icons-vue'
+import { Plus, Refresh, FolderAdd ,ArrowDown,ArrowRight} from '@element-plus/icons-vue'
 
 // API客户端配置（关键修正）
 const apiClient = axios.create({
@@ -125,17 +130,18 @@ const formData = ref({
 const deptOptions = ref([])
 const treeProps = {
   label: 'name',
-  children: 'children'
+  children: 'children',
+  hasChildren: 'hasChildren'  // 添加这个属性
 }
 
 // 方法定义
 const fetchDeptTree = async () => {
   try {
-    const response = await apiClient.get('/departments/tree')
-    deptTreeData.value = response.data || []
+    const response = await apiClient.get('/departments/tree');
+    console.log('完整的部门树数据:', JSON.parse(JSON.stringify(response.data)));
+    deptTreeData.value = response.data || [];
   } catch (error) {
-    ElMessage.error('获取部门树失败: ' + error.message)
-    console.error('API Error:', error)
+    ElMessage.error('获取部门树失败: ' + error.message);
   }
 }
 
@@ -162,9 +168,9 @@ const refreshTree = () => {
 }
 
 const handleNodeClick = (data) => {
-  console.log('选中部门:', data)
+  // Element UI树组件会自动处理子节点展开
+  console.log('选中部门:', data);
 }
-
 const handleAdd = () => {
   dialogTitle.value = '新增部门'
   formData.value = {
@@ -205,6 +211,46 @@ const submitForm = async () => {
   }
 }
 
+// 在方法定义部分添加以下代码
+const toggleDept = (dept) => {
+  // 如果不存在expanded属性，则添加并设置为true
+  if (dept.expanded === undefined) {
+    dept.expanded = true;
+  } else {
+    dept.expanded = !dept.expanded;
+  }
+  
+  // 如果需要点击时才加载子部门，可以添加以下逻辑
+  if (dept.expanded && (!dept.children || dept.children.length === 0)) {
+    loadChildren(dept.id);
+  }
+}
+
+// 可选：加载子部门的方法
+const loadChildren = async (parentId) => {
+  try {
+    const response = await apiClient.get(`/departments/${parentId}/children`);
+    const parentDept = findDeptInTree(parentId, deptTreeData.value);
+    if (parentDept) {
+      parentDept.children = response.data;
+    }
+  } catch (error) {
+    ElMessage.error('加载子部门失败');
+  }
+}
+
+// 辅助方法：在树中查找部门
+const findDeptInTree = (id, tree) => {
+  for (const dept of tree) {
+    if (dept.id === id) return dept;
+    if (dept.children) {
+      const found = findDeptInTree(id, dept.children);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
 // 生命周期钩子
 onMounted(() => {
   fetchDeptTree()
@@ -215,6 +261,9 @@ onMounted(() => {
 <style scoped>
 .dept-management {
   padding: 20px;
+  background-color: #fff;
+  border-radius: 6px;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
 }
 
 .search-form {
@@ -226,29 +275,114 @@ onMounted(() => {
 
 .operation-buttons {
   margin-bottom: 20px;
+  display: flex;
+  gap: 10px;
 }
 
-.tree-container {
+.dept-container {
   border: 1px solid #ebeef5;
   border-radius: 4px;
-  padding: 20px;
-  background: #fff;
+  padding: 15px;
+  background-color: #fff;
+  max-height: 600px;
+  overflow-y: auto;
 }
 
-.custom-tree-node {
-  flex: 1;
+.dept-item {
+  margin-bottom: 8px;
+}
+
+.dept-parent {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: 14px;
-  padding-right: 8px;
+  padding: 10px 15px;
+  background-color: #f5f7fa;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: 1px solid #e6e6e6;
+  
+  &:hover {
+    background-color: #e6f7ff;
+    border-color: #c0e0ff;
+  }
 }
 
-.tree-actions {
-  visibility: hidden;
+.dept-parent span {
+  font-weight: 500;
+  color: #333;
 }
 
-.el-tree-node__content:hover .tree-actions {
-  visibility: visible;
+.dept-parent .el-icon {
+  transition: transform 0.3s ease;
+  color: #666;
+}
+
+.dept-parent .rotate-icon {
+  transform: rotate(180deg);
+}
+
+.dept-children {
+  margin-left: 24px;
+  margin-top: 8px;
+  border-left: 2px dashed #d9d9d9;
+  padding-left: 15px;
+  transition: all 0.3s ease;
+}
+
+.dept-child {
+  padding: 8px 15px;
+  margin-bottom: 5px;
+  background-color: #fafafa;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 1px solid #f0f0f0;
+  
+  &:hover {
+    background-color: #f0f7ff;
+    border-color: #d0e3ff;
+    transform: translateX(3px);
+  }
+}
+
+/* 滚动条样式 */
+.dept-container::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.dept-container::-webkit-scrollbar-thumb {
+  background-color: #c1c1c1;
+  border-radius: 3px;
+}
+
+.dept-container::-webkit-scrollbar-thumb:hover {
+  background-color: #a8a8a8;
+}
+
+/* 对话框样式 */
+.el-dialog__body {
+  padding: 20px;
+}
+
+.el-form-item {
+  margin-bottom: 18px;
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+  .search-form {
+    padding: 15px;
+  }
+  
+  .dept-parent, .dept-child {
+    padding: 8px 12px;
+  }
+  
+  .dept-children {
+    margin-left: 15px;
+  }
 }
 </style>

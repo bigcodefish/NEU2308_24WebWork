@@ -5,8 +5,7 @@ import com.example.webcarproject.mapper.DepartmentMapper;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Date;
-import java.util.List;
+import java.util.*;
 
 @CrossOrigin(origins = "*")
 @RestController
@@ -31,7 +30,11 @@ public class DepartmentController {
 
     @GetMapping("/tree")
     public List<Department> getTree() {
-        return departmentMapper.selectTree();
+        // 获取所有部门数据
+        List<Department> allDepts = departmentMapper.selectAllDepts();
+
+        // 构建树形结构
+        return buildDeptTree(allDepts);
     }
 
     @GetMapping("/{id}")
@@ -81,4 +84,33 @@ public class DepartmentController {
     public List<Long> getUsersByDeptId(@PathVariable Long id) {
         return departmentMapper.selectUserIdsByDeptId(id);
     }
+
+    @GetMapping("/{parentId}/children")
+    public List<Department> getChildrenByParentId(@PathVariable Long parentId) {
+        return departmentMapper.selectChildren(parentId);
+    }
+
+    private List<Department> buildDeptTree(List<Department> allDepts) {
+        // 创建ID到部门的映射
+        Map<Long, Department> deptMap = new HashMap<>();
+        allDepts.forEach(dept -> deptMap.put(dept.getId(), dept));
+
+        // 构建树
+        List<Department> tree = new ArrayList<>();
+        for (Department dept : allDepts) {
+            if (dept.getParentId() == null) {
+                tree.add(dept);  // 添加根节点
+            } else {
+                Department parent = deptMap.get(dept.getParentId());
+                if (parent != null) {
+                    if (parent.getChildren() == null) {
+                        parent.setChildren(new ArrayList<>());
+                    }
+                    parent.getChildren().add(dept);  // 添加子节点
+                }
+            }
+        }
+        return tree;
+    }
+
 }
