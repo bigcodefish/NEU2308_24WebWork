@@ -1,604 +1,1059 @@
 <template>
   <div class="user-management">
+    <!-- 搜索区域 -->
     <div class="search-form">
       <div class="form-item">
-        <label>用户名称</label>
-        <input v-model="searchParams.username" type="text" placeholder="请输入用户名称">
+        <label>用户名</label>
+        <el-input 
+          v-model="searchParams.username" 
+          placeholder="请输入用户名" 
+          clearable 
+          @keyup.enter="handleSearch"
+        />
       </div>
       <div class="form-item">
         <label>姓名</label>
-        <input v-model="searchParams.name" type="text" placeholder="请输入姓名">
+        <el-input 
+          v-model="searchParams.name" 
+          placeholder="请输入姓名" 
+          clearable 
+          @keyup.enter="handleSearch"
+        />
       </div>
       <div class="form-item">
-        <label>手机号码</label>
-        <input v-model="searchParams.phone" type="text" placeholder="请输入手机号码">
+        <label>手机号</label>
+        <el-input 
+          v-model="searchParams.phone" 
+          placeholder="请输入手机号" 
+          clearable 
+          @keyup.enter="handleSearch"
+        />
+      </div>
+      <div class="form-item">
+        <label>邮箱</label>
+        <el-input 
+          v-model="searchParams.email" 
+          placeholder="请输入邮箱" 
+          clearable 
+          @keyup.enter="handleSearch"
+        />
       </div>
       <div class="form-item">
         <label>状态</label>
-        <select v-model="searchParams.status">
-          <option value="">全部</option>
-          <option value="0">正常</option>
-          <option value="1">停用</option>
-          <option value="2">锁定</option>
-        </select>
+        <el-select 
+          v-model="searchParams.status" 
+          placeholder="请选择状态" 
+          clearable
+          style="width: 100%"
+        >
+          <el-option label="正常" value="0" />
+          <el-option label="禁用" value="1" />
+          <el-option label="锁定" value="2" />
+        </el-select>
+      </div>
+      <div class="form-item">
+        <label>部门</label>
+        <el-select 
+          v-model="searchParams.departmentId" 
+          placeholder="请选择部门" 
+          clearable
+          style="width: 100%"
+          filterable
+        >
+          <el-option
+            v-for="dept in departmentOptions"
+            :key="dept.id"
+            :label="dept.name"
+            :value="dept.id"
+          />
+        </el-select>
+      </div>
+      <div class="form-item date-range">
+        <label>创建时间</label>
+        <div class="date-picker-group">
+          <el-date-picker
+            v-model="searchParams.startTime"
+            type="date"
+            placeholder="开始日期"
+            value-format="YYYY-MM-DD"
+            :clearable="false"
+          />
+          <span class="date-separator">至</span>
+          <el-date-picker
+            v-model="searchParams.endTime"
+            type="date"
+            placeholder="结束日期"
+            value-format="YYYY-MM-DD"
+            :clearable="false"
+          />
+        </div>
       </div>
       <div class="search-buttons">
-        <button class="btn btn-primary" @click="search">搜索</button>
-        <button class="btn" @click="reset">重置</button>
+        <el-button type="primary" @click="handleSearch" :icon="Search">搜索</el-button>
+        <el-button @click="handleReset" :icon="RefreshLeft">重置</el-button>
       </div>
     </div>
-    
-    <div class="toolbar">
-      <div class="btn-group">
-        <button class="btn btn-primary" @click="showAddDialog">新增</button>
-        <button class="btn btn-success" :disabled="selectedIds.length !== 1" @click="showEditDialog">修改</button>
-        <button class="btn btn-danger" :disabled="selectedIds.length === 0" @click="batchDelete">删除</button>
-        <button class="btn" @click="showImportDialog">导入</button>
-        <button class="btn" @click="exportUsers">导出</button>
-      </div>
-      <button class="btn" @click="refresh">刷新</button>
-    </div>
-    
-    <table class="table">
-      <thead>
-        <tr>
-          <th><input type="checkbox" v-model="selectAll" @change="toggleSelectAll"></th>
-          <th>用户编号</th>
-          <th>用户名称</th>
-          <th>姓名</th>
-          <th>部门</th>
-          <th>手机号码</th>
-          <th>状态</th>
-          <th>创建时间</th>
-          <th>操作</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="user in userList" :key="user.id">
-          <td><input type="checkbox" v-model="selectedIds" :value="user.id"></td>
-          <td>{{ user.id }}</td>
-          <td>{{ user.username }}</td>
-          <td>{{ user.name }}</td>
-          <td>{{ user.departmentName }}</td>
-          <td>{{ user.phone }}</td>
-          <td>
-            <span class="status-tag" :class="getStatusClass(user.status)">
-              {{ getStatusText(user.status) }}
-            </span>
-          </td>
-          <td>{{ formatDate(user.createTime) }}</td>
-          <td>
-            <button class="link" @click="showEditDialog(user.id)">修改</button>
-            <button class="link" @click="confirmDelete(user.id)">删除</button>
-            <button class="link" @click="showResetPasswordDialog(user.id)">重置密码</button>
-            <button class="link" @click="showAssignRolesDialog(user.id)">分配角色</button>
-          </td>
-        </tr>
-      </tbody>
-    </table>
-    
-    <div class="pagination">
-      共 {{ totalItems }} 条记录，每页 {{ pageSize }} 条
-      <span 
-        v-for="page in pageNumbers" 
-        :key="page"
-        @click="changePage(page)"
-        :class="{ active: currentPage === page }"
+
+    <!-- 操作按钮区域 -->
+    <div class="operation-buttons">
+      <el-button type="primary" @click="handleAdd" :icon="Plus">新增</el-button>
+      <el-button 
+        type="success" 
+        :disabled="selectedRows.length !== 1" 
+        @click="handleEdit"
+        :icon="Edit"
       >
-        {{ page }}
-      </span>
+        修改
+      </el-button>
+      <el-button 
+        type="danger" 
+        :disabled="selectedRows.length === 0" 
+        @click="handleBatchDelete"
+        :icon="Delete"
+      >
+        删除
+      </el-button>
+      <el-button type="info" @click="handleExport" :icon="Download">导出</el-button>
+      <el-button @click="refreshTable" :icon="RefreshRight">刷新</el-button>
+    </div>
+
+    <!-- 用户表格 -->
+    <el-table
+      v-loading="loading"
+      :data="tableData"
+      border
+      stripe
+      style="width: 100%"
+      @selection-change="handleSelectionChange"
+      highlight-current-row
+    >
+      <el-table-column type="selection" width="55" align="center" />
+      <el-table-column prop="id" label="用户ID" width="80" sortable align="center" />
+      <el-table-column prop="username" label="用户名" width="120" sortable />
+      <el-table-column prop="name" label="姓名" width="100" sortable />
+      <el-table-column label="部门" width="120">
+        <template #default="{ row }">
+          {{ getDepartmentName(row.departmentId) }}
+        </template>
+      </el-table-column>
+      <el-table-column prop="phone" label="手机号" width="120" />
+      <el-table-column prop="email" label="邮箱" width="180" />
+      <el-table-column label="状态" width="100" sortable align="center">
+        <template #default="{ row }">
+          <el-tag :type="getStatusTagType(row.status)" effect="light">
+            {{ getStatusText(row.status) }}
+          </el-tag>
+        </template>
+      </el-table-column>
+      <el-table-column prop="createTime" label="创建时间" width="180" sortable>
+        <template #default="{ row }">
+          {{ formatDate(row.createTime) }}
+        </template>
+      </el-table-column>
+      <el-table-column prop="lastLoginTime" label="最后登录" width="180">
+        <template #default="{ row }">
+          {{ row.lastLoginTime ? formatDate(row.lastLoginTime) : '从未登录' }}
+        </template>
+      </el-table-column>
+      <el-table-column label="操作" width="220" fixed="right" align="center">
+        <template #default="{ row }">
+          <el-button size="small" @click="handleEdit(row.id)" :icon="EditPen">编辑</el-button>
+          <el-dropdown>
+            <el-button size="small">
+              更多<el-icon class="el-icon--right"><arrow-down /></el-icon>
+            </el-button>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item @click="handleResetPassword(row.id)" :icon="Key">
+                  重置密码
+                </el-dropdown-item>
+                <el-dropdown-item @click="handleAssignRoles(row.id)" :icon="User">
+                  分配角色
+                </el-dropdown-item>
+                <el-dropdown-item 
+                  @click="handleChangeStatus(row.id, row.status === '0' ? '1' : '0')"
+                  :icon="row.status === '0' ? CircleClose : CircleCheck"
+                >
+                  {{ row.status === '0' ? '禁用' : '启用' }}
+                </el-dropdown-item>
+                <el-dropdown-item 
+                  @click="handleDelete(row.id)" 
+                  :icon="Delete"
+                  style="color: #f56c6c"
+                >
+                  删除
+                </el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
+        </template>
+      </el-table-column>
+    </el-table>
+
+    <!-- 分页组件 -->
+    <div class="pagination">
+      <el-pagination
+        v-model:current-page="currentPage"
+        v-model:page-size="pageSize"
+        :total="total"
+        :page-sizes="[10, 20, 50, 100]"
+        layout="total, sizes, prev, pager, next, jumper"
+        background
+        @size-change="handleSizeChange"
+        @current-change="handleCurrentChange"
+      />
     </div>
 
     <!-- 新增/编辑用户对话框 -->
-    <div class="dialog" v-if="showUserDialog">
-      <div class="dialog-content">
-        <div class="dialog-header">
-          <h3>{{ isEditMode ? '编辑用户' : '新增用户' }}</h3>
-          <button class="close-btn" @click="closeUserDialog">&times;</button>
-        </div>
-        <div class="dialog-body">
-          <div class="form-group">
-            <label>用户名</label>
-            <input v-model="currentUser.username" type="text" :disabled="isEditMode">
-          </div>
-          <div class="form-group">
-            <label>姓名</label>
-            <input v-model="currentUser.name" type="text">
-          </div>
-          <div class="form-group">
-            <label>邮箱</label>
-            <input v-model="currentUser.email" type="email">
-          </div>
-          <div class="form-group">
-            <label>手机号</label>
-            <input v-model="currentUser.phone" type="tel">
-          </div>
-          <div class="form-group">
-            <label>部门</label>
-            <select v-model="currentUser.departmentId">
-              <option v-for="dept in departmentList" :key="dept.id" :value="dept.id">{{ dept.name }}</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>状态</label>
-            <select v-model="currentUser.status">
-              <option value="0">正常</option>
-              <option value="1">停用</option>
-              <option value="2">锁定</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>角色</label>
-            <div class="checkbox-group">
-              <label v-for="role in roleList" :key="role.id">
-                <input type="checkbox" 
-                       v-model="currentUser.roleIds" 
-                       :value="role.id">
-                {{ role.name }}
-              </label>
-            </div>
-          </div>
-        </div>
-        <div class="dialog-footer">
-          <button class="btn btn-primary" @click="saveUser">保存</button>
-          <button class="btn" @click="closeUserDialog">取消</button>
-        </div>
-      </div>
-    </div>
+    <el-dialog
+      v-model="dialogVisible"
+      :title="dialogTitle"
+      width="600px"
+      :close-on-click-modal="false"
+      :close-on-press-escape="false"
+    >
+      <el-form 
+        ref="userForm" 
+        :model="formData" 
+        :rules="formRules" 
+        label-width="100px"
+        label-position="left"
+      >
+        <el-form-item label="用户名" prop="username">
+          <el-input v-model="formData.username" :disabled="isEditMode" />
+        </el-form-item>
+        <el-form-item label="姓名" prop="name">
+          <el-input v-model="formData.name" />
+        </el-form-item>
+        <el-form-item label="邮箱" prop="email">
+          <el-input v-model="formData.email" />
+        </el-form-item>
+        <el-form-item label="手机号" prop="phone">
+          <el-input v-model="formData.phone" />
+        </el-form-item>
+        <el-form-item label="部门" prop="departmentId">
+          <el-select 
+            v-model="formData.departmentId" 
+            placeholder="请选择部门" 
+            style="width: 100%"
+            filterable
+          >
+            <el-option
+              v-for="dept in departmentOptions"
+              :key="dept.id"
+              :label="dept.name"
+              :value="dept.id"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="状态" prop="status">
+          <el-radio-group v-model="formData.status">
+           <el-radio :value="0">正常</el-radio>
+               <el-radio :value="1">禁用</el-radio>
+               <el-radio :value="2">锁定</el-radio>
+          </el-radio-group>
+        </el-form-item>
+        <el-form-item label="角色" prop="roleIds">
+          <el-select
+            v-model="formData.roleIds"
+            multiple
+            placeholder="请选择角色"
+            style="width: 100%"
+            filterable
+          >
+            <el-option
+              v-for="role in roleOptions"
+              :key="role.id"
+              :label="role.name"
+              :value="role.id"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item v-if="!isEditMode" label="初始密码" prop="password">
+          <el-input 
+            v-model="formData.password" 
+            type="password" 
+            show-password 
+            placeholder="默认密码: 123456"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="dialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="submitForm" :loading="formSubmitting">
+          确定
+        </el-button>
+      </template>
+    </el-dialog>
 
-    <!-- 重置密码对话框 -->
-    <div class="dialog" v-if="showResetPasswordDialog">
-      <div class="dialog-content">
-        <div class="dialog-header">
-          <h3>重置密码</h3>
-          <button class="close-btn" @click="closeResetPasswordDialog">&times;</button>
-        </div>
-        <div class="dialog-body">
-          <div class="form-group">
-            <label>新密码</label>
-            <input v-model="newPassword" type="password" placeholder="请输入新密码">
-          </div>
-          <div class="form-group">
-            <label>确认密码</label>
-            <input v-model="confirmPassword" type="password" placeholder="请再次输入密码">
-          </div>
-        </div>
-        <div class="dialog-footer">
-          <button class="btn btn-primary" @click="resetPassword">确定</button>
-          <button class="btn" @click="closeResetPasswordDialog">取消</button>
-        </div>
-      </div>
-    </div>
+ <!-- 重置密码对话框（精简正确版） -->
+ <el-dialog 
+   v-model="resetPasswordDialogVisible" 
+   title="重置密码" 
+   width="400px"
+ >
+   <el-form 
+     ref="resetPasswordFormRef"
+     :model="resetPasswordForm"
+     :rules="resetPasswordRules"
+     label-width="100px"
+   >
+     <el-form-item label="新密码" prop="newPassword">
+       <el-input
+         v-model="resetPasswordForm.newPassword"
+         type="password"
+         show-password
+       />
+     </el-form-item>
+     <el-form-item label="确认密码" prop="confirmPassword">
+       <el-input
+         v-model="resetPasswordForm.confirmPassword"
+         type="password"
+         show-password
+       />
+     </el-form-item>
+   </el-form>
+   
+   <template #footer>
+     <span class="dialog-footer">
+       <el-button @click="resetPasswordDialogVisible = false">取消</el-button>
+       <el-button 
+         type="primary" 
+         @click="submitResetPassword"
+       >
+         确定
+       </el-button>
+     </span>
+   </template>
+ </el-dialog>
 
     <!-- 分配角色对话框 -->
-    <div class="dialog" v-if="showAssignRolesDialog">
-      <div class="dialog-content">
-        <div class="dialog-header">
-          <h3>分配角色</h3>
-          <button class="close-btn" @click="closeAssignRolesDialog">&times;</button>
-        </div>
-        <div class="dialog-body">
-          <div class="checkbox-group">
-            <label v-for="role in roleList" :key="role.id">
-              <input type="checkbox" 
-                     v-model="selectedRoleIds" 
-                     :value="role.id">
-              {{ role.name }}
-            </label>
-          </div>
-        </div>
-        <div class="dialog-footer">
-          <button class="btn btn-primary" @click="assignRoles">保存</button>
-          <button class="btn" @click="closeAssignRolesDialog">取消</button>
-        </div>
-      </div>
-    </div>
+    <el-dialog 
+      v-model="assignRolesDialogVisible" 
+      title="分配角色" 
+      width="500px"
+      :close-on-click-modal="false"
+    >
+      <el-checkbox-group v-model="selectedRoleIds" class="role-checkbox-group">
+        <el-checkbox
+          v-for="role in roleOptions"
+          :key="role.id"
+          :label="role.id"
+          class="role-checkbox"
+        >
+          {{ role.name }}
+        </el-checkbox>
+      </el-checkbox-group>
+      <template #footer>
+        <el-button @click="assignRolesDialogVisible = false">取消</el-button>
+        <el-button 
+          type="primary" 
+          @click="submitAssignRoles"
+          :loading="roleSubmitting"
+        >
+          确定
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
-import axios from 'axios';
+import { ref, reactive, onMounted, nextTick } from 'vue'
+import { 
+  ElMessage, 
+  ElMessageBox, 
+  type FormInstance, 
+  type FormRules,
+} from 'element-plus'
+import { 
+  Plus, 
+  Edit, 
+  Delete, 
+  Download, 
+  RefreshRight, 
+  ArrowDown,
+  Search,
+  RefreshLeft,
+  EditPen,
+  Key,
+  User,
+  CircleClose,
+  CircleCheck
+} from '@element-plus/icons-vue'
+import axios from 'axios'
+import dayjs from 'dayjs'
+
+// 修改后的axios配置
+const apiClient = axios.create({
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080',
+  timeout: 10000,
+  headers: {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json'
+  }
+})
+
+// 添加请求拦截器
+apiClient.interceptors.request.use(config => {
+  // 确保不携带第三方API请求
+  if (config.url?.includes('ipify.org')) {
+    throw new Error('Blocked external API request')
+  }
+  return config
+})
+
+// 添加响应拦截器
+apiClient.interceptors.response.use(
+  response => {
+    // 处理后端返回的真实数据（根据你的实际返回结构调整）
+    return response.data?.data || response.data
+  },
+  error => {
+    // 统一错误处理
+    if (error.response) {
+      switch (error.response.status) {
+        case 401:
+          ElMessage.error('请先登录')
+          break
+        case 403:
+          ElMessage.error('没有操作权限')
+          break
+        case 500:
+          ElMessage.error('服务器内部错误')
+          break
+        default:
+          ElMessage.error(`请求失败: ${error.message}`)
+      }
+    } else if (error.request) {
+      ElMessage.error('网络连接异常，请检查网络')
+    } else {
+      ElMessage.error(`请求配置错误: ${error.message}`)
+    }
+    return Promise.reject(error)
+  }
+)
 
 interface User {
-  id: number;
-  username: string;
-  name: string;
-  departmentId: number;
-  departmentName: string;
-  phone: string;
-  email: string;
-  status: string;
-  createTime: string;
-  roleIds: number[];
+  id: number
+  username: string
+  password?: string
+  name: string
+  email: string
+  phone: string
+  departmentId: number
+  status: string  // 注意后端返回的是"A"/"I"，不是"0"/"1"
+  lastLoginTime: string | null
+  createTime: string
+  roleIds?: number[] | null
+  roleNames?: string[] | null
 }
 
 interface Department {
-  id: number;
-  name: string;
+  id: number
+  name: string
 }
 
 interface Role {
-  id: number;
-  name: string;
+  id: number
+  name: string
 }
 
-const searchParams = ref({
+// 状态变量
+const tableData = ref<User[]>([])
+const selectedRows = ref<User[]>([])
+const currentPage = ref(1)
+const pageSize = ref(10)
+const total = ref(0)
+const loading = ref(false)
+const formSubmitting = ref(false)
+const passwordSubmitting = ref(false)
+const roleSubmitting = ref(false)
+
+const searchParams = reactive({
   username: '',
   name: '',
   phone: '',
+  email: '',
   status: '',
-});
+  departmentId: null as number | null,
+  startTime: '',
+  endTime: ''
+})
 
-const userList = ref<User[]>([]);
-const departmentList = ref<Department[]>([]);
-const roleList = ref<Role[]>([]);
-const selectedIds = ref<number[]>([]);
-const selectAll = ref(false);
-const totalItems = ref(0);
-const pageSize = ref(10);
-const currentPage = ref(1);
-
-// 对话框相关状态
-const showUserDialog = ref(false);
-const isEditMode = ref(false);
-const currentUser = ref<User>({
+const dialogVisible = ref(false)
+const isEditMode = ref(false)
+const dialogTitle = ref('')
+const userForm = ref<FormInstance>()
+const formData = reactive({
   id: 0,
   username: '',
   name: '',
-  departmentId: 0,
-  departmentName: '',
-  phone: '',
   email: '',
+  phone: '',
+  departmentId: null as number | null,
   status: '0',
-  createTime: '',
-  roleIds: []
+  roleIds: [] as number[],
+  password: '123456'
+})
+
+const formRules = reactive<FormRules>({
+  username: [
+    { required: true, message: '请输入用户名', trigger: 'blur' },
+    { min: 4, max: 20, message: '长度在4到20个字符', trigger: 'blur' }
+  ],
+  name: [
+    { required: true, message: '请输入姓名', trigger: 'blur' },
+    { min: 2, max: 10, message: '长度在2到10个字符', trigger: 'blur' }
+  ],
+  email: [
+    { required: true, message: '请输入邮箱', trigger: 'blur' },
+    { type: 'email', message: '请输入正确的邮箱格式', trigger: 'blur' }
+  ],
+  phone: [
+    { required: true, message: '请输入手机号', trigger: 'blur' },
+    { pattern: /^1[3-9]\d{9}$/, message: '请输入正确的手机号', trigger: 'blur' }
+  ],
+  departmentId: [{ required: true, message: '请选择部门', trigger: 'change' }],
+  password: [
+    { required: true, message: '请输入密码', trigger: 'blur' },
+    { min: 6, max: 20, message: '长度在6到20个字符', trigger: 'blur' }
+  ]
+})
+
+const departmentOptions = ref<Department[]>([])
+const roleOptions = ref<Role[]>([])
+
+const resetPasswordDialogVisible = ref(false)
+const resetPasswordForm = ref({
+  userId : 0,
+  newPassword: '',
+  confirmPassword: ''
 });
+// 表单引用
+const resetPasswordFormRef = ref<FormInstance>()
 
-const showResetPasswordDialog = ref(false);
-const resetPasswordUserId = ref(0);
-const newPassword = ref('');
-const confirmPassword = ref('');
+// 定义 resetPasswordRules
+const resetPasswordRules = reactive({
+  newPassword: [
+    { required: true, message: '请输入新密码', trigger: 'blur' },
+    { min: 6, max: 20, message: '长度在6到20个字符', trigger: 'blur' }
+  ],
+  confirmPassword: [
+    { required: true, message: '请确认密码', trigger: 'blur' },
+    {
+      validator: (rule, value, callback) => {
+        if (value !== resetPasswordForm.value.newPassword) {
+          callback(new Error('两次输入的密码不一致'))
+        } else {
+          callback()
+        }
+      },
+      trigger: 'blur'
+    }
+  ]
+})
 
-const showAssignRolesDialog = ref(false);
-const assignRolesUserId = ref(0);
-const selectedRoleIds = ref<number[]>([]);
 
-const pageNumbers = computed(() => {
-  const pages = [];
-  const totalPages = Math.ceil(totalItems.value / pageSize.value);
-  const maxVisiblePages = 5;
-  
-  let startPage = Math.max(1, currentPage.value - Math.floor(maxVisiblePages / 2));
-  let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
-  
-  if (endPage - startPage + 1 < maxVisiblePages) {
-    startPage = Math.max(1, endPage - maxVisiblePages + 1);
+const assignRolesDialogVisible = ref(false)
+const selectedRoleIds = ref<number[]>([])
+const currentAssignUserId = ref(0)
+
+// 工具函数
+const formatDate = (dateString: string | undefined) => {
+  if (!dateString) return ''
+  return dayjs(dateString).format('YYYY-MM-DD HH:mm:ss')
+}
+
+const getStatusText = (status: string) => {
+  switch (status) {
+    case '0': return '正常'
+    case '1': return '禁用'
+    case '2': return '锁定'
+    default: return '未知'
   }
-  
-  for (let i = startPage; i <= endPage; i++) {
-    pages.push(i);
+}
+
+const getStatusTagType = (status: string) => {
+  switch (status) {
+    case '0': return 'success'
+    case '1': return 'danger'
+    case '2': return 'warning'
+    default: return 'info'
   }
-  
-  return pages;
-});
+}
 
-onMounted(() => {
-  fetchUsers();
-  fetchDepartments();
-  fetchRoles();
-});
+const getDepartmentName = (id: number | null) => {
+  if (!id) return '未分配'
+  const dept = departmentOptions.value.find(d => d.id === id)
+  return dept ? dept.name : '未知部门'
+}
 
-const fetchUsers = async () => {
+const fetchUserList = async () => {
   try {
-    const response = await axios.get('/api/users', {
-      params: {
-        ...searchParams.value,
-        page: currentPage.value,
-        size: pageSize.value
+    loading.value = true;
+    
+    // 构造查询参数
+    const params = {
+      username: searchParams.username || undefined,
+      name: searchParams.name || undefined,
+      phone: searchParams.phone || undefined,
+      email: searchParams.email || undefined,
+      departmentId: searchParams.departmentId || undefined,
+      status: searchParams.status || undefined,
+      startTime: searchParams.startTime ? dayjs(searchParams.startTime).format('YYYY-MM-DD') : undefined,
+      endTime: searchParams.endTime ? dayjs(searchParams.endTime).format('YYYY-MM-DD') : undefined,
+      page: currentPage.value,
+      size: pageSize.value
+    };
+
+    // 发送请求
+    const response = await apiClient.get('/api/users/condition', { 
+      params: params,
+      paramsSerializer: {
+        indexes: null // 防止数组参数被序列化为索引形式
       }
     });
-    userList.value = response.data;
-    totalItems.value = response.headers['x-total-count'] || response.data.length;
+
+    // 处理响应数据
+    if (Array.isArray(response)) {
+      tableData.value = response.map(user => ({
+        ...user,
+        departmentName: departmentOptions.value.find(d => d.id === user.departmentId)?.name || '未分配',
+        roleIds: Array.isArray(user.roleIds) ? user.roleIds : []
+      }));
+      total.value = response.length;
+    } else if (response && response.data && response.total) {
+      // 如果有分页结构
+      tableData.value = response.data.map(user => ({
+        ...user,
+        departmentName: departmentOptions.value.find(d => d.id === user.departmentId)?.name || '未分配',
+        roleIds: Array.isArray(user.roleIds) ? user.roleIds : []
+      }));
+      total.value = response.total;
+    } else {
+      tableData.value = [];
+      total.value = 0;
+    }
+
   } catch (error) {
-    console.error('获取用户列表失败:', error);
+    if (!axios.isCancel(error)) {
+      ElMessage.error('获取用户列表失败');
+      console.error('获取用户列表失败:', error);
+      tableData.value = [];
+      total.value = 0;
+    }
+  } finally {
+    loading.value = false;
   }
 };
 
 const fetchDepartments = async () => {
   try {
-    const response = await axios.get('/api/departments');
-    departmentList.value = response.data;
+    const response = await apiClient.get('/api/departments')
+    departmentOptions.value = response || []
   } catch (error) {
-    console.error('获取部门列表失败:', error);
+    departmentOptions.value = []
+    console.error('获取部门列表失败:', error)
   }
-};
+}
 
 const fetchRoles = async () => {
   try {
-    const response = await axios.get('/api/roles');
-    roleList.value = response.data;
+    const response = await apiClient.get('/api/roles')
+    roleOptions.value = response || []
   } catch (error) {
-    console.error('获取角色列表失败:', error);
+    roleOptions.value = []
+    console.error('获取角色列表失败:', error)
+  }
+}
+
+// 操作方法
+const handleSearch = () => {
+  currentPage.value = 1
+  fetchUserList()
+}
+
+const handleReset = () => {
+  searchParams.username = ''
+  searchParams.name = ''
+  searchParams.phone = ''
+  searchParams.email = ''
+  searchParams.status = ''
+  searchParams.departmentId = null
+  searchParams.startTime = ''
+  searchParams.endTime = ''
+  handleSearch()
+}
+
+const refreshTable = () => {
+  currentPage.value = 1
+  fetchUserList()
+}
+
+const handleSelectionChange = (rows: User[]) => {
+  selectedRows.value = rows
+}
+
+const handleSizeChange = (size: number) => {
+  pageSize.value = size
+  fetchUserList()
+}
+
+const handleCurrentChange = (page: number) => {
+  currentPage.value = page
+  fetchUserList()
+}
+
+const handleAdd = () => {
+  isEditMode.value = false;
+  dialogTitle.value = '新增用户';
+  dialogVisible.value = true; // 先显示对话框
+  nextTick(() => {
+    resetForm(); // 在下一个DOM更新周期重置表单
+  });
+};
+
+const handleEdit = async (id?: number) => {
+  const userId = id || selectedRows.value[0]?.id;
+  if (!userId) return;
+
+  try {
+    loading.value = true;
+    // 获取用户基本信息
+    const user = await apiClient.get(`/api/users/${userId}`);
+    
+    // 获取角色ID - 修改这里
+    const roleIds = await apiClient.get(`/api/users/${userId}/roles`); // 使用正确接口
+    
+    Object.assign(formData, {
+      ...user,
+      roleIds: roleIds || []
+    });
+    
+    isEditMode.value = true;
+    dialogTitle.value = '编辑用户';
+    dialogVisible.value = true;
+  } catch (error) {
+    ElMessage.error('获取用户信息失败');
+    console.error(error);
+  } finally {
+    loading.value = false;
   }
 };
-
-const search = () => {
-  currentPage.value = 1;
-  fetchUsers();
-};
-
-const reset = () => {
-  searchParams.value = {
-    username: '',
-    name: '',
-    phone: '',
-    status: '',
-  };
-  search();
-};
-
-const refresh = () => {
-  fetchUsers();
-};
-
-const showAddDialog = () => {
-  isEditMode.value = false;
-  currentUser.value = {
+const resetForm = () => {
+  Object.assign(formData, {
     id: 0,
     username: '',
     name: '',
-    departmentId: departmentList.value[0]?.id || 0,
-    departmentName: '',
-    phone: '',
     email: '',
+    phone: '',
+    departmentId: null,
     status: '0',
-    createTime: '',
-    roleIds: []
-  };
-  showUserDialog.value = true;
+    roleIds: [],
+    password: '123456'
+  });
+  nextTick(() => {
+    userForm.value?.clearValidate(); // 清除校验状态
+  });
 };
 
-const showEditDialog = async (userId?: number) => {
-  const id = userId || selectedIds.value[0];
-  if (!id) return;
-
+const submitForm = async () => {
   try {
-    const response = await axios.get(`/api/users/${id}`);
-    currentUser.value = response.data;
-    isEditMode.value = true;
-    showUserDialog.value = true;
-  } catch (error) {
-    console.error('获取用户信息失败:', error);
-  }
-};
+    await userForm.value?.validate();
+    formSubmitting.value = true;
 
-const closeUserDialog = () => {
-  showUserDialog.value = false;
-};
+    // 构造请求数据（新增时不带id字段）
+    const payload = {
+      username: formData.username,
+      password: formData.password, // 确保包含密码
+      name: formData.name,
+      email: formData.email,
+      phone: formData.phone,
+      departmentId: formData.departmentId,
+      status: formData.status,
+      roleIds: formData.roleIds
+    };
 
-const saveUser = async () => {
-  try {
     if (isEditMode.value) {
-      await axios.put(`/api/users/${currentUser.value.id}`, currentUser.value);
+      // 编辑模式包含ID
+      await apiClient.put(`/api/users/${formData.id}`, {
+        ...payload,
+        id: formData.id
+      });
+      ElMessage.success('更新成功');
     } else {
-      await axios.post('/api/users', currentUser.value);
+      // 新增模式
+      const response = await apiClient.post('/api/users', payload);
+      console.log('创建响应:', response);
+      ElMessage.success(`用户创建成功，ID: ${response.id}`);
     }
-    closeUserDialog();
-    fetchUsers();
+    
+    dialogVisible.value = false;
+    await fetchUserList();
   } catch (error) {
-    console.error('保存用户失败:', error);
+    console.error('完整错误:', error);
+    let errorMsg = error.response?.data?.message || error.message;
+    // 处理特定错误信息
+    if (errorMsg.includes('唯一约束') ){
+      errorMsg = '用户ID冲突，请联系管理员重置数据库序列';
+    }
+    ElMessage.error(`操作失败: ${errorMsg}`);
+  } finally {
+    formSubmitting.value = false;
   }
 };
 
-const confirmDelete = (userId: number) => {
-  if (confirm('确定要删除该用户吗？')) {
-    deleteUser(userId);
-  }
-};
-
-const deleteUser = async (userId: number) => {
+const handleDelete = async (id: number) => {
   try {
-    await axios.delete(`/api/users/${userId}`);
-    fetchUsers();
+    await ElMessageBox.confirm('确定要删除该用户吗？', '提示', {
+      type: 'warning'
+    })
+    await apiClient.delete(`/api/users/${id}`)
+    ElMessage.success('删除成功')
+    fetchUserList()
   } catch (error) {
-    console.error('删除用户失败:', error);
+    console.error(error)
   }
-};
+}
 
-const batchDelete = async () => {
-  if (selectedIds.value.length === 0) return;
-  if (!confirm(`确定要删除选中的 ${selectedIds.value.length} 个用户吗？`)) return;
+const handleBatchDelete = async () => {
+  if (selectedRows.value.length === 0) return
 
   try {
-    await Promise.all(selectedIds.value.map(id => axios.delete(`/api/users/${id}`)));
-    selectedIds.value = [];
-    fetchUsers();
+    await ElMessageBox.confirm(`确定要删除选中的 ${selectedRows.value.length} 个用户吗？`, '提示', {
+      type: 'warning'
+    })
+    loading.value = true
+    await apiClient.post('/api/users/batch-delete', {
+      ids: selectedRows.value.map(user => user.id)
+    })
+    ElMessage.success('批量删除成功')
+    selectedRows.value = []
+    fetchUserList()
   } catch (error) {
-    console.error('批量删除用户失败:', error);
+    console.error(error)
+  } finally {
+    loading.value = false
   }
-};
+}
 
-const showResetPasswordDialog = (userId: number) => {
-  resetPasswordUserId.value = userId;
-  newPassword.value = '';
-  confirmPassword.value = '';
-  showResetPasswordDialog.value = true;
-};
+const handleResetPassword = (userId: number) => {
+  resetPasswordForm.value.userId = userId
+  resetPasswordForm.value.newPassword = ''
+  resetPasswordForm.value.confirmPassword = ''
+  resetPasswordDialogVisible.value = true
+}
 
+// 提交重置密码
+const submitResetPassword = async () => {
+  try {
+    await resetPasswordFormRef.value?.validate()
+    passwordSubmitting.value = true
+    
+    await apiClient.put(`/api/users/${resetPasswordForm.value.userId}/password`, {
+      newPassword: resetPasswordForm.value.newPassword
+    })
+    
+    ElMessage.success('密码重置成功')
+    resetPasswordDialogVisible.value = false
+  } catch (error) {
+    ElMessage.error('密码重置失败')
+    console.error(error)
+  } finally {
+    passwordSubmitting.value = false
+  }
+}
+// 关闭对话框时调用
 const closeResetPasswordDialog = () => {
-  showResetPasswordDialog.value = false;
+  resetPasswordDialogVisible.value = false;
+  // 重置表单内容
+  resetPasswordForm.value = {
+    userId: 0,
+    newPassword: '',
+    confirmPassword: ''
+  };
+  // 清除验证状态
+  resetPasswordFormRef.value?.clearValidate();
 };
 
-const resetPassword = async () => {
-  if (newPassword.value !== confirmPassword.value) {
-    alert('两次输入的密码不一致');
-    return;
-  }
 
+const handleAssignRoles = async (userId: number) => {
+  currentAssignUserId.value = userId
   try {
-    await axios.put(`/api/users/${resetPasswordUserId.value}/password`, null, {
-      params: { password: newPassword.value }
+    loading.value = true
+    const roleIds = await apiClient.get(`/api/users/${userId}/role-ids`)
+    selectedRoleIds.value = roleIds || []
+    assignRolesDialogVisible.value = true
+  } catch (error) {
+    ElMessage.error('获取用户角色失败')
+    console.error(error)
+  } finally {
+    loading.value = false
+  }
+}
+
+const submitAssignRoles = async () => {
+  try {
+    roleSubmitting.value = true
+    await apiClient.put(`/api/users/${currentAssignUserId.value}/roles`, {
+      roleIds: selectedRoleIds.value
+    })
+    ElMessage.success('角色分配成功')
+    assignRolesDialogVisible.value = false
+    fetchUserList()
+  } catch (error) {
+    ElMessage.error('角色分配失败')
+    console.error(error)
+  } finally {
+    roleSubmitting.value = false
+  }
+}
+
+const handleChangeStatus = async (userId: number, newStatus: string) => {
+  try {
+    await apiClient.patch(`/api/users/${userId}/status?status=${newStatus}`)
+    ElMessage.success('状态更新成功')
+    fetchUserList()
+  } catch (error) {
+    ElMessage.error('状态更新失败')
+    console.error(error)
+  }
+}
+
+
+const handleExport = async () => {
+  try {
+    loading.value = true;
+
+    // 手动构造干净的查询参数对象
+    const exportParams = {
+      ...(searchParams.username && { username: searchParams.username }),
+      ...(searchParams.name && { name: searchParams.name }),
+      ...(searchParams.phone && { phone: searchParams.phone }),
+      ...(searchParams.email && { email: searchParams.email }),
+      ...(searchParams.status && { status: searchParams.status }),
+      ...(searchParams.departmentId && { departmentId: searchParams.departmentId }),
+      ...(searchParams.startTime && { startTime: searchParams.startTime }),
+      ...(searchParams.endTime && { endTime: searchParams.endTime }),
+    };
+
+    const response = await apiClient.get('/api/users/user-export', {
+      params: exportParams,
+      responseType: 'blob'
     });
-    closeResetPasswordDialog();
-    alert('密码重置成功');
+
+    const url = window.URL.createObjectURL(new Blob([response]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `用户列表_${dayjs().format('YYYYMMDDHHmmss')}.xlsx`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   } catch (error) {
-    console.error('重置密码失败:', error);
+    ElMessage.error('导出失败');
+    console.error(error);
+  } finally {
+    loading.value = false;
   }
 };
 
-const showAssignRolesDialog = async (userId: number) => {
-  assignRolesUserId.value = userId;
-  try {
-    const response = await axios.get(`/api/users/${userId}`);
-    selectedRoleIds.value = response.data.roleIds || [];
-    showAssignRolesDialog.value = true;
-  } catch (error) {
-    console.error('获取用户角色失败:', error);
-  }
-};
 
-const closeAssignRolesDialog = () => {
-  showAssignRolesDialog.value = false;
-};
-
-const assignRoles = async () => {
-  try {
-    const user = { ...currentUser.value, roleIds: selectedRoleIds.value };
-    await axios.put(`/api/users/${assignRolesUserId.value}`, user);
-    closeAssignRolesDialog();
-    fetchUsers();
-  } catch (error) {
-    console.error('分配角色失败:', error);
-  }
-};
-
-const toggleSelectAll = () => {
-  if (selectAll.value) {
-    selectedIds.value = userList.value.map(user => user.id);
-  } else {
-    selectedIds.value = [];
-  }
-};
-
-const changePage = (page: number) => {
-  currentPage.value = page;
-  fetchUsers();
-};
-
-const getStatusText = (status: string) => {
-  switch (status) {
-    case '0': return '正常';
-    case '1': return '停用';
-    case '2': return '锁定';
-    default: return '未知';
-  }
-};
-
-const getStatusClass = (status: string) => {
-  switch (status) {
-    case '0': return 'status-normal';
-    case '1': return 'status-disabled';
-    case '2': return 'status-locked';
-    default: return '';
-  }
-};
-
-const formatDate = (dateString: string) => {
-  if (!dateString) return '';
-  const date = new Date(dateString);
-  return date.toLocaleString();
-};
+// 初始化
+onMounted(() => {
+  fetchUserList()
+  fetchDepartments()
+  fetchRoles()
+})
 </script>
 
-<style scoped>
-/* 原有样式保持不变 */
-
-.dialog {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(0, 0, 0, 0.5);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1000;
-}
-
-.dialog-content {
-  background-color: white;
-  border-radius: 5px;
-  width: 600px;
-  max-width: 90%;
-  max-height: 90%;
-  overflow-y: auto;
-}
-
-.dialog-header {
-  padding: 15px;
-  border-bottom: 1px solid #eee;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.dialog-header h3 {
-  margin: 0;
-}
-
-.close-btn {
-  background: none;
-  border: none;
-  font-size: 20px;
-  cursor: pointer;
-}
-
-.dialog-body {
-  padding: 15px;
-}
-
-.dialog-footer {
-  padding: 15px;
-  border-top: 1px solid #eee;
-  text-align: right;
-}
-
-.form-group {
-  margin-bottom: 15px;
-}
-
-.form-group label {
-  display: block;
-  margin-bottom: 5px;
-  font-weight: bold;
-}
-
-.form-group input,
-.form-group select {
-  width: 100%;
-  padding: 8px;
-  border: 1px solid #ddd;
+<style scoped lang="css">
+.user-management {
+  padding: 20px;
+  background-color: #fff;
   border-radius: 4px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
 }
 
-.checkbox-group {
+.search-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+  margin-bottom: 20px;
+  padding: 15px;
+  background: #f8f8f8;
+  border-radius: 4px;
+
+  .form-item {
+    display: flex;
+    flex-direction: column;
+    min-width: 200px;
+
+    label {
+      margin-bottom: 5px;
+      font-weight: bold;
+      font-size: 14px;
+      color: #606266;
+    }
+
+    &.date-range {
+      min-width: 380px;
+
+      .date-picker-group {
+        display: flex;
+        align-items: center;
+
+        .date-separator {
+          margin: 0 8px;
+          color: #909399;
+        }
+      }
+    }
+  }
+
+  .search-buttons {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+    margin-left: auto;
+  }
+}
+
+.operation-buttons {
+  margin-bottom: 15px;
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
 }
 
-.checkbox-group label {
+.pagination {
+  margin-top: 20px;
   display: flex;
-  align-items: center;
-  gap: 5px;
-  cursor: pointer;
+  justify-content: flex-end;
 }
 
-.status-locked {
-  background: #fff3cd;
-  color: #856404;
-  border: 1px solid #ffeeba;
+.role-checkbox-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+
+  .role-checkbox {
+    margin-left: 0;
+    display: block;
+  }
+}
+
+.el-table {
+  margin-top: 10px;
+
+  :deep(.el-table__cell) {
+    padding: 8px 0;
+  }
+}
+
+.el-dialog {
+  :deep(.el-dialog__body) {
+    padding: 20px 30px;
+  }
 }
 </style>
