@@ -118,6 +118,8 @@ public interface TaskMapper {
                            @Param("executor") String executor);
 
 
+
+
     // 获取指定日期的巡检数量
     @Select("SELECT COUNT(*) FROM task WHERE planned_start_time::date = #{date}")
     int getTaskCountByDate(String date);
@@ -132,4 +134,16 @@ public interface TaskMapper {
             "GROUP BY TO_CHAR(planned_start_time, 'YYYY-MM') " +
             "ORDER BY TO_CHAR(planned_start_time, 'YYYY-MM')")
     List<Map<String, Object>> getMonthlyTaskCount();
+
+    // 获取人员的任务统计信息
+    @Select("SELECT executor, COUNT(*) AS taskCount FROM task GROUP BY executor")
+    List<Map<String, Object>> getPersonTaskStats();
+
+    // 获取指定月份的巡检详细信息
+    @Select("SELECT * FROM task WHERE TO_CHAR(planned_start_time, 'YYYY-MM') = #{month}")
+    List<Task> getMonthlyTaskDetail(String month);
+
+    // 获取指定人员的任务详细信息
+    @Select("SELECT * FROM task WHERE executor = #{executor}")
+    List<Task> getPersonTaskDetail(@Param("executor") String executor);
 }

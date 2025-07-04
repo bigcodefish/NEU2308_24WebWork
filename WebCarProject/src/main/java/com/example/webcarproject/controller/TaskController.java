@@ -135,4 +135,22 @@ public class TaskController {
     public List<Map<String, Object>> getMonthlyTaskCount() {
         return taskMapper.getMonthlyTaskCount();
     }
+
+    // 获取人员的任务统计信息
+    @GetMapping("/tasks/stats/person")
+    public List<Map<String, Object>> getPersonTaskStats() {
+        return taskMapper.getPersonTaskStats();
+    }
+
+    // 获取指定月份的巡检详细信息
+    @GetMapping("/tasks/monthly-detail")
+    public List<Task> getMonthlyTaskDetail(@RequestParam String month) {
+        return taskMapper.getMonthlyTaskDetail(month);
+    }
+
+    // 获取指定人员的任务详细信息
+    @GetMapping("/tasks/person-detail")
+    public List<Task> getPersonTaskDetail(@RequestParam String executor) {
+        return taskMapper.getPersonTaskDetail(executor);
+    }
 }
