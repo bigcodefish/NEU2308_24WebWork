@@ -3,6 +3,7 @@ import com.example.webcarproject.entity.Task;
 import org.apache.ibatis.annotations.*;
 
 import java.util.List;
+import java.util.Map;
 
 @Mapper
 public interface TaskMapper {
@@ -115,4 +116,20 @@ public interface TaskMapper {
                            @Param("taskName") String taskName,
                            @Param("creator") String creator,
                            @Param("executor") String executor);
+
+
+    // 获取指定日期的巡检数量
+    @Select("SELECT COUNT(*) FROM task WHERE planned_start_time::date = #{date}")
+    int getTaskCountByDate(String date);
+
+    // 获取指定日期的巡视距离
+    @Select("SELECT SUM(inspection_distance) FROM task WHERE planned_start_time::date = #{date}")
+    double getTotalDistanceByDate(String date);
+
+    // 获取每月的巡检次数
+    @Select("SELECT TO_CHAR(planned_start_time, 'YYYY-MM') AS month, COUNT(*) AS count " +
+            "FROM task " +
+            "GROUP BY TO_CHAR(planned_start_time, 'YYYY-MM') " +
+            "ORDER BY TO_CHAR(planned_start_time, 'YYYY-MM')")
+    List<Map<String, Object>> getMonthlyTaskCount();
 }

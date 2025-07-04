@@ -13,29 +13,29 @@
 						<div class="card-title">巡视数据统计</div>
 						<div class="stats-grid">
 							<div class="stat-item">
-								<div class="stat-number">123</div>
+								<div class="stat-number">{{ todayTaskCount }}</div>
 								<div class="stat-label">今日巡视数</div>
 							</div>
 							<div class="stat-item">
-								<div class="stat-number">98</div>
+								<div class="stat-number">{{ yesterdayTaskCount }}</div>
 								<div class="stat-label">昨日巡视数</div>
 							</div>
 							<div class="stat-item">
-								<div class="stat-number">25%</div>
+								<div class="stat-number">{{ taskGrowthRate }}%</div>
 								<div class="stat-label">环比增长</div>
 							</div>
 						</div>
 						<div class="stats-grid">
 							<div class="stat-item">
-								<div class="stat-number">1.2km</div>
+								<div class="stat-number">{{ todayDistance }}km</div>
 								<div class="stat-label">今日巡视距离</div>
 							</div>
 							<div class="stat-item">
-								<div class="stat-number">0.9km</div>
+								<div class="stat-number">{{ yesterdayDistance }}km</div>
 								<div class="stat-label">昨日巡视距离</div>
 							</div>
 							<div class="stat-item">
-								<div class="stat-number">33%</div>
+								<div class="stat-number">{{ distanceGrowthRate }}%</div>
 								<div class="stat-label">环比增长</div>
 							</div>
 						</div>
@@ -76,7 +76,7 @@
 							<div>图层1: 路线图</div>
 							<div>图层2: 地铁图</div>
 							<div>图层3: 地图背景</div>
-						</div>	
+						</div>
 						地图可视化区域<br>
 						(地铁路线、巡视轨迹、实时位置)
 					</div>
@@ -128,7 +128,7 @@
 
 					<div class="card">
 						<div class="card-title">每月巡检次数</div>
-						<div class="chart-area">折线图 - 月度巡检趋势</div>
+						<div class="chart-area" ref="monthlyTaskChart" style="height: 100%; min-height: 200px;"></div>
 					</div>
 
 					<div class="card">
@@ -288,8 +288,126 @@
 	import { useTaskStore } from '../stores/task'
 
 	const API_URL = 'http://localhost:8080/api/defects'
+	const API_URL_TASK = 'http://localhost:8080/api/tasks'
+
 
 	const taskStore = useTaskStore()
+
+	const todayTaskCount = ref(0);
+	const yesterdayTaskCount = ref(0);
+	const taskGrowthRate = ref(0);
+	const todayDistance = ref(0);
+	const yesterdayDistance = ref(0);
+	const distanceGrowthRate = ref(0);
+
+	const monthlyTaskChart = ref<HTMLElement | null>(null)
+	const monthlyTaskData = ref<{ month : string; count : number }[]>([])
+
+	// 获取每月的巡检次数
+	const fetchMonthlyTaskCount = async () => {
+		try {
+			const res = await axios.get(`${API_URL_TASK}/monthly-count`)
+			monthlyTaskData.value = res.data.map((item : any) => ({
+				month: item.month,
+				count: item.count || 0
+			}))
+
+			// 数据获取后渲染图表
+			renderMonthlyTaskChart()
+		} catch (e) {
+			console.error('获取每月巡检次数失败', e)
+			monthlyTaskData.value = []
+		}
+	}
+
+	// 渲染每月巡检次数折线图
+	const renderMonthlyTaskChart = () => {
+		if (!monthlyTaskChart.value || monthlyTaskData.value.length === 0) return
+
+		const chart = echarts.init(monthlyTaskChart.value)
+
+		const xData = monthlyTaskData.value.map(item => item.month)
+		const yData = monthlyTaskData.value.map(item => item.count)
+
+		// 配置项
+		const option : echarts.EChartsOption = {
+			tooltip: {
+				trigger: 'axis'
+			},
+			xAxis: {
+				type: 'category',
+				data: xData,
+				axisLabel: {
+					color: '#fff'
+				},
+				axisLine: {
+					lineStyle: {
+						color: '#00a8e8'
+					}
+				}
+			},
+			yAxis: {
+				type: 'value',
+				axisLabel: {
+					color: '#fff'
+				},
+				axisLine: {
+					lineStyle: {
+						color: '#00a8e8'
+					}
+				},
+				splitLine: {
+					lineStyle: {
+						color: 'rgba(0, 168, 232, 0.2)'
+					}
+				}
+			},
+			series: [
+				{
+					data: yData,
+					type: 'line',
+					smooth: true,
+					itemStyle: {
+						color: '#00a8e8'
+					},
+					lineStyle: {
+						color: '#00a8e8'
+					}
+				}
+			]
+		}
+
+		chart.setOption(option)
+
+		// 窗口大小变化时重绘
+		const resizeHandler = () => chart.resize()
+		window.addEventListener('resize', resizeHandler)
+		onUnmounted(() => {
+			window.removeEventListener('resize', resizeHandler)
+			chart.dispose()
+		})
+	}
+
+	// 获取今日巡检数量、昨日巡检数量、今日巡视距离、昨日巡视距离
+	const fetchDailyTaskStats = async () => {
+		try {
+			const res = await axios.get(`${API_URL_TASK}/daily-stats`);
+			todayTaskCount.value = res.data.todayTaskCount;
+			yesterdayTaskCount.value = res.data.yesterdayTaskCount;
+			todayDistance.value = res.data.todayDistance;
+			yesterdayDistance.value = res.data.yesterdayDistance;
+
+			// 计算环比增长
+			if (yesterdayTaskCount.value !== 0) {
+				taskGrowthRate.value = parseFloat((((todayTaskCount.value - yesterdayTaskCount.value) / yesterdayTaskCount.value) * 100).toFixed(1));
+			}
+			if (yesterdayDistance.value !== 0) {
+				distanceGrowthRate.value = parseFloat((((todayDistance.value - yesterdayDistance.value) / yesterdayDistance.value) * 100).toFixed(1));
+			}
+		} catch (e) {
+			console.error('获取每日任务统计数据失败', e);
+		}
+	};
 
 	// 添加格式化距离的方法
 	const formatDistance = (distance : number | undefined) => {
@@ -819,19 +937,18 @@
 	}
 
 	onMounted(async () => {
-	  try {
-	    console.log('HomeScreen: 开始获取任务统计数据...')
-	    await taskStore.fetchTaskStats()
-	    console.log('HomeScreen: 获取到的任务统计数据:', taskStore.taskStats)
-	    
-	    await Promise.all([
-	      fetchDefectStats(),
-	      fetchDefectTypeStats(),
-	      fetchMonthlyDefectStats()
-	    ])
-	  } catch (error) {
-	    console.error('初始化数据失败:', error)
-	  }
+		try {
+			await taskStore.fetchTaskStats()
+			await Promise.all([
+				fetchDefectStats(),
+				fetchDefectTypeStats(),
+				fetchMonthlyDefectStats(),
+				fetchDailyTaskStats(),
+				fetchMonthlyTaskCount()
+			])
+		} catch (error) {
+			console.error('初始化数据失败:', error)
+		}
 	})
 </script>
 

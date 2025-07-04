@@ -6,6 +6,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -97,11 +100,39 @@ public class TaskController {
                 .mapToDouble(Task::getInspectionDistance)
                 .sum();
 
-        System.out.println("后端统计结果 - 总次数: " + totalTasks + ", 总距离: " + totalDistance);
+        //System.out.println("后端统计结果 - 总次数: " + totalTasks + ", 总距离: " + totalDistance);
 
         return Map.of(
                 "totalTasks", totalTasks,
                 "totalDistance", totalDistance
         );
+    }
+
+
+    // 获取今日巡检数量、昨日巡检数量、今日巡视距离、昨日巡视距离
+    @GetMapping("/tasks/daily-stats")
+    public Map<String, Object> getDailyTaskStats() {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+        String today = LocalDate.now().format(formatter);
+        String yesterday = LocalDate.now().minusDays(1).format(formatter);
+
+        int todayTaskCount = taskMapper.getTaskCountByDate(today);
+        int yesterdayTaskCount = taskMapper.getTaskCountByDate(yesterday);
+
+        double todayDistance = taskMapper.getTotalDistanceByDate(today);
+        double yesterdayDistance = taskMapper.getTotalDistanceByDate(yesterday);
+
+        Map<String, Object> stats = new HashMap<>();
+        stats.put("todayTaskCount", todayTaskCount);
+        stats.put("yesterdayTaskCount", yesterdayTaskCount);
+        stats.put("todayDistance", todayDistance);
+        stats.put("yesterdayDistance", yesterdayDistance);
+        return stats;
+    }
+
+    // 获取每月的巡检次数
+    @GetMapping("/tasks/monthly-count")
+    public List<Map<String, Object>> getMonthlyTaskCount() {
+        return taskMapper.getMonthlyTaskCount();
     }
 }
