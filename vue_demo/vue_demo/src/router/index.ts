@@ -107,30 +107,24 @@ const routes : RouteRecordRaw[] = [
 			permissions: ['defect:view']
 		}
 	},
-	{
-		path: '/task',
-		name: 'TaskManagement',
-		component: () => import('@/views/TaskManagement.vue'),
-		meta: {
-			title: '任务管理',
-			requiresAuth: true
-		}
-	},
-	{
-		path: '/task-detail/:id',
-		name: 'TaskDetailPage',
-		component: () => import('@/components/TaskDetailPage.vue'),
-		meta: {
-			title: '任务详情',
-			requiresAuth: true
-		}
-	}
+	
 ]
 
 const router = createRouter({
 	history: createWebHistory(import.meta.env.BASE_URL),
-	routes
-})
+	routes: [
+	  {
+		path: '/task',
+		name: 'TaskManagement',
+		component: () => import('../views/TaskManagement.vue')
+	  },
+	  {
+		path: '/task-detail/:id',
+		name: 'TaskDetailPage',
+		component: () => import('../components/TaskDetailPage.vue')
+	  }
+	],
+  })
 
 // 路由守卫 - 权限控制
 router.beforeEach((to, from, next) => {
