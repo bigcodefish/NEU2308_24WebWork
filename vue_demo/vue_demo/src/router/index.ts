@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import type { RouteRecordRaw } from 'vue-router'
 import SystemManagement from '@/views/SystemManagement.vue'
+import DefectManagement from '@/views/DefectManagement.vue'
 
 declare module 'vue-router' {
   interface RouteMeta {
@@ -11,6 +12,7 @@ declare module 'vue-router' {
   }
 }
 
+// 系统管理子路由
 const systemRoutes: RouteRecordRaw[] = [
   {
     path: 'user',
@@ -66,9 +68,21 @@ const systemRoutes: RouteRecordRaw[] = [
 
 const routes: RouteRecordRaw[] = [
   {
-    path: '/',
-    redirect: '/system/user'
-  },
+		path: '/',
+		name: 'login',
+		component: () => import('@/views/Login.vue'),
+		meta: {
+			title: '登录'
+		}
+	},
+  {
+		path: '/register',
+		name: 'register',
+		component: () => import('@/views/Register.vue'),
+		meta: {
+			title: '注册'
+		}
+	},
   {
     path: '/system',
     name: 'System',
@@ -77,6 +91,43 @@ const routes: RouteRecordRaw[] = [
     redirect: '/system/user',
     children: systemRoutes
   },
+  {
+		path: '/homescreen',
+		name: 'HomeScreen',
+		component: () => import('@/views/HomeScreen.vue'),
+		meta: {
+			title: '首页',
+			requiresAuth: true
+		}
+	},
+  {
+		path: '/defect',
+		name: 'DefectManagement',
+		component: DefectManagement,
+		meta: {
+			title: '缺陷管理',
+			requiresAuth: true,
+			permissions: ['defect:view']
+		}
+	},
+  {
+		path: '/task',
+		name: 'TaskManagement',
+		component: () => import('@/views/TaskManagement.vue'),
+		meta: {
+			title: '任务管理',
+			requiresAuth: true
+		}
+	},
+	{
+		path: '/task-detail/:id',
+		name: 'TaskDetailPage',
+		component: () => import('@/components/TaskDetailPage.vue'),
+		meta: {
+			title: '任务详情',
+			requiresAuth: true
+		}
+	},
   {
     path: '/:pathMatch(.*)*',
     redirect: '/system/user'
