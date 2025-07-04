@@ -116,22 +116,6 @@
 
       <el-row :gutter="20">
         <el-col :span="12">
-          <el-form-item label="巡视距离" prop="inspectionDistance">
-            <el-input-number
-              v-model="formData.inspectionDistance"
-              :min="0"
-              :max="9999"
-              :precision="2"
-              placeholder="请输入巡视距离"
-              style="width: 100%"
-            />
-            <span style="margin-left: 5px; color: #666;">公里</span>
-          </el-form-item>
-        </el-col>
-      </el-row>
-
-      <el-row :gutter="20">
-        <el-col :span="12">
           <el-form-item label="任务状态" prop="status">
             <el-select v-model="formData.status" placeholder="请选择状态" style="width: 100%">
               <el-option label="待执行" value="待执行" />
@@ -231,7 +215,6 @@ const formData = reactive({
   startLocation: '',
   endLocation: '',
   inspectionScope: '',
-  inspectionDistance: null as number | null,
   status: '待执行',
   completionRate: 0,
   executionResult: '',
@@ -284,7 +267,6 @@ watch([() => props.task, () => props.visible, () => props.isEdit], ([newTask, vi
       formData.startLocation = newTask.startLocation || ''
       formData.endLocation = newTask.endLocation || ''
       formData.inspectionScope = newTask.inspectionScope || ''
-      formData.inspectionDistance = newTask.inspectionDistance || null
       formData.status = newTask.status || '待执行'
       formData.completionRate = newTask.completionRate || 0
       formData.executionResult = newTask.executionResult || ''
@@ -306,7 +288,6 @@ watch([() => props.task, () => props.visible, () => props.isEdit], ([newTask, vi
       formData.startLocation = ''
       formData.endLocation = ''
       formData.inspectionScope = ''
-      formData.inspectionDistance = null
       formData.status = '待执行'
       formData.completionRate = 0
       formData.executionResult = ''
@@ -353,7 +334,6 @@ const handleSubmit = async () => {
       startLocation: formData.startLocation || undefined,
       endLocation: formData.endLocation || undefined,
       inspectionScope: formData.inspectionScope || undefined,
-      inspectionDistance: formData.inspectionDistance !== null ? Number(formData.inspectionDistance) : undefined,
       status: formData.status || undefined,
       completionRate: Number(formData.completionRate),
       executionResult: formData.executionResult || undefined,
