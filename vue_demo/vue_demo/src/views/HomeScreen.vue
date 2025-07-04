@@ -192,12 +192,13 @@
 							<tr v-for="defect in recentDefects" :key="defect.id">
 								<td>{{ defect.defectNo || 'DEF-' + defect.id }}</td>
 								<td>{{ defect.location || '-' }}</td>
-								<td>{{ defect.severity || '-' }}</td>
-								<td :class="getStatusClass(defect.status)">{{ defect.status || '-' }}</td>
+								<td :class="getSeverityClass(defect.severity)" style="background-color: transparent;">
+									{{ defect.severity || '-' }}
+								</td>
+								<td :class="getStatusClass(defect.status)" style="background-color: transparent;">
+									{{ defect.status || '-' }}
+								</td>
 								<td>{{ formatDate(defect.reportTime) }}</td>
-							</tr>
-							<tr v-if="recentDefects.length === 0">
-								<td colspan="5" style="text-align: center;">暂无数据</td>
 							</tr>
 						</tbody>
 					</table>
@@ -405,6 +406,17 @@
 	const selectedMonthlyTaskMonth = ref('');
 	const monthlyTaskDetails = ref<any[]>([]);
 
+	// 添加获取严重程度样式类的方法
+	const getSeverityClass = (severity : string | null) => {
+		if (!severity) return '';
+		switch (severity) {
+			case '高': return 'severity-high';
+			case '中': return 'severity-medium';
+			case '低': return 'severity-low';
+			default: return '';
+		}
+	};
+
 
 	// 获取人员的任务统计信息
 	const fetchPersonTaskStats = async () => {
@@ -574,7 +586,8 @@
 
 		const chart = echarts.init(monthlyTaskChart.value);
 
-		const xData = monthlyTaskData.value.map(item => item.month);
+		// 只提取月份信息
+		const xData = monthlyTaskData.value.map(item => item.month.split('-')[1]);
 		const yData = monthlyTaskData.value.map(item => item.count);
 
 		// 配置项
@@ -590,9 +603,9 @@
 				type: 'category',
 				data: xData,
 				axisLabel: {
-					color: '#333', // 修改 x 轴标签颜色
+					color: '#fff', // 修改 x 轴标签颜色为白色
 					rotate: 45, // 旋转 x 轴标签
-					fontSize: 12 // 修改 x 轴标签字体大小
+					fontSize: 14 // 增大 x 轴标签字体大小
 				},
 				axisLine: {
 					lineStyle: {
@@ -606,8 +619,8 @@
 			yAxis: {
 				type: 'value',
 				axisLabel: {
-					color: '#333', // 修改 y 轴标签颜色
-					fontSize: 12 // 修改 y 轴标签字体大小
+					color: '#fff', // 修改 y 轴标签颜色为白色
+					fontSize: 14 // 增大 y 轴标签字体大小
 				},
 				axisLine: {
 					lineStyle: {
@@ -650,7 +663,7 @@
 
 		// 添加点击事件
 		chart.on('click', (params : echarts.ECElementEvent) => {
-			const month = xData[params.dataIndex];
+			const month = monthlyTaskData.value[params.dataIndex].month;
 			if (month) {
 				selectedMonthlyTaskMonth.value = month;
 				(async () => {
@@ -834,9 +847,9 @@
 
 	// 渲染饼图
 	const renderPieChart = () => {
-		if (!pieChart.value || defectTypes.value.length === 0) return
+		if (!pieChart.value || defectTypes.value.length === 0) return;
 
-		const chart = echarts.init(pieChart.value)
+		const chart = echarts.init(pieChart.value);
 
 		// 配置项
 		const option : echarts.EChartsOption = {
@@ -850,14 +863,14 @@
 				top: 'center',
 				textStyle: {
 					color: '#fff',
-					fontSize: 12
+					fontSize: 14 // 增大图例文字大小
 				},
 				itemWidth: 14,
 				itemHeight: 14,
 				itemGap: 10,
 				formatter: (name) => {
-					const data = defectTypes.value.find(item => item.type === name)
-					return `${name} (${data?.count || 0})`
+					const data = defectTypes.value.find(item => item.type === name);
+					return `${name} (${data?.count || 0})`;
 				}
 			},
 			series: [
@@ -884,13 +897,7 @@
 						fontSize: 12
 					},
 					labelLine: {
-						show: true,
-						length: 10,
-						length2: 5,
-						smooth: true,
-						lineStyle: {
-							color: 'rgba(255, 255, 255, 0.3)'
-						}
+						show: false // 移除标签线
 					},
 					emphasis: {
 						scale: true,
@@ -913,10 +920,7 @@
 					}))
 				}
 			],
-			color: [
-				'#1E90FF', '#00BFFF', '#87CEFA', '#4682B4', '#4169E1',
-				'#6495ED', '#00CED1', '#5F9EA0', '#20B2AA', '#008B8B'
-			],
+			color: ['#00fff7', '#002eff', '#8af7eb', '#a5c9f4', '#6f6490', '#ae74ff', '#7a3cff', '#0b89ff', '#068bff', '#03afff'],
 			grid: {
 				top: 0,
 				left: 0,
@@ -924,26 +928,26 @@
 				bottom: 0,
 				containLabel: true
 			}
-		}
+		};
 
-		chart.setOption(option)
+		chart.setOption(option);
 
 		// 添加点击事件
 		chart.on('click', (params : echarts.ECElementEvent) => {
-			const data = params.data as { name : string; value : number }
+			const data = params.data as { name : string; value : number };
 			if (data?.name) {
-				selectedDefectType.value = data.name
-					; (async () => {
-						await fetchDefectTypeDetails(data.name)
-						defectTypeModalVisible.value = true
-					})()
+				selectedDefectType.value = data.name;
+				(async () => {
+					await fetchDefectTypeDetails(data.name);
+					defectTypeModalVisible.value = true;
+				})();
 			}
-		})
+		});
 
 		window.addEventListener('resize', () => {
-			chart.resize()
-		})
-	}
+			chart.resize();
+		});
+	};
 
 
 	// 获取缺陷类型详情
@@ -983,7 +987,6 @@
 		defectTypeModalVisible.value = false
 	}
 
-	// 从DefectManagement.vue复用的方法
 	function getStatusClass(status : string | null) {
 		if (!status) return ''
 		switch (status) {
@@ -1059,8 +1062,8 @@
 
 		const chart = echarts.init(lineChart.value);
 
-		// 准备数据
-		const months = monthlyDefectStats.value.map(item => item.month);
+		// 只提取月份信息
+		const months = monthlyDefectStats.value.map(item => item.month.split('-')[1]);
 		const counts = monthlyDefectStats.value.map(item => item.count);
 
 		// 配置项 - 面积图
@@ -1073,7 +1076,7 @@
 				borderWidth: 1,
 				textStyle: {
 					color: '#fff',
-					fontSize: 12
+					fontSize: 14 // 增大提示框文字大小
 				},
 				axisPointer: {
 					type: 'shadow',
@@ -1100,8 +1103,8 @@
 					}
 				},
 				axisLabel: {
-					color: '#aaa',
-					fontSize: 10,
+					color: '#fff', // 修改 x 轴标签颜色为白色
+					fontSize: 14, // 增大 x 轴标签字体大小
 					rotate: 30
 				},
 				axisTick: {
@@ -1118,8 +1121,8 @@
 					}
 				},
 				axisLabel: {
-					color: '#aaa',
-					fontSize: 10
+					color: '#fff', // 修改 y 轴标签颜色为白色
+					fontSize: 14 // 增大 y 轴标签字体大小
 				},
 				splitLine: {
 					lineStyle: {
@@ -1148,10 +1151,10 @@
 				data: counts,
 				smooth: true,
 				symbol: 'circle',
-				symbolSize: 6,
+				symbolSize: 8, // 增大数据点大小
 				showSymbol: true,
 				lineStyle: {
-					width: 2,
+					width: 3, // 增大线条宽度
 					color: '#00a8e8'
 				},
 				itemStyle: {
@@ -1169,7 +1172,7 @@
 		chart.off('click'); // 先移除旧的事件
 		chart.on('click', (params) => {
 			if (params.componentType === 'series') {
-				const month = months[params.dataIndex];
+				const month = monthlyDefectStats.value[params.dataIndex].month;
 				console.log('点击月份:', month); // 调试日志
 				selectedMonth.value = month;
 				fetchMonthlyDetails(month).then(() => {
@@ -1649,6 +1652,32 @@
 	.mini-table tr:hover {
 		background-color: rgba(0, 168, 232, 0.3);
 	}
-	
-	
+
+	.tag-waiting {
+		color: #FFC300;
+	}
+
+	.tag-info {
+		color: #87CEFA;
+	}
+
+	.tag-processing {
+		color: #98FB98;
+	}
+
+	.tag-success {
+		color: #00FF00;
+	}
+
+	.severity-high {
+		color: #FF0000;
+	}
+
+	.severity-medium {
+		color: #FFA500;
+	}
+
+	.severity-low {
+		color: #FFFF00;
+	}
 </style>
