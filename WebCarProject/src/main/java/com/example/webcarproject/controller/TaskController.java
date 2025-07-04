@@ -153,4 +153,16 @@ public class TaskController {
     public List<Task> getPersonTaskDetail(@RequestParam String executor) {
         return taskMapper.getPersonTaskDetail(executor);
     }
+
+    // 获取总巡检次数和巡检中有问题的次数
+    @GetMapping("/tasks/defect-discovery-stats")
+    public Map<String, Object> getDefectDiscoveryStats() {
+        int totalInspections = taskMapper.findAllTasks().size();
+        int inspectionsWithDefects = taskMapper.getInspectionsWithDefects().size();
+
+        return Map.of(
+                "totalInspections", totalInspections,
+                "inspectionsWithDefects", inspectionsWithDefects
+        );
+    }
 }

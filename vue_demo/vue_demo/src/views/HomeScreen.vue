@@ -86,43 +86,31 @@
 				<div class="right-panel">
 					<div class="card" style="min-height: auto;">
 						<div class="card-title">缺陷数据统计</div>
-						<div class="stats-grid">
-							<div class="stat-item">
-								<div class="stat-number large">{{ defectStats.totalDefects || 0 }}</div>
-								<div class="stat-label">累计缺陷数</div>
+						<div class="stat-item combined">
+							<div class="stat-number large">
+								{{ defectStats.totalDefects || 0 }} : {{ defectStats.confirmedDefects || 0 }} /
+								{{ defectStats.falseDefects || 0 }}
 							</div>
-							<div class="stat-item">
-								<div class="stat-number large">{{ defectStats.confirmedDefects || 0 }}</div>
-								<div class="stat-label">确认缺陷数</div>
-							</div>
-							<div class="stat-item">
-								<div class="stat-number large">{{ defectStats.falseDefects || 0 }}</div>
-								<div class="stat-label">误报缺陷数</div>
-							</div>
+							<div class="stat-label">累计：确认/误报缺陷数</div>
 						</div>
-						<div class="stats-grid">
-							<div class="stat-item">
-								<div class="stat-number large">{{ processedDefects || 0 }}</div>
-								<div class="stat-label">已处理缺陷</div>
+						<div class="stat-item combined">
+							<div class="stat-number large">
+								{{ processedDefects || 0 }} / {{ defectStats.totalDefects || 0 }} :
+								{{ processingRate }}%
 							</div>
-							<div class="stat-item">
-								<div class="stat-number large">{{ processingRate }}%</div>
-								<div class="stat-label">处理率</div>
-							</div>
+							<div class="stat-label">已处理/累计：处理率</div>
 						</div>
-						<div class="stats-grid">
-							<div class="stat-item">
-								<div class="stat-number">{{ severityStats.high || 0 }}</div>
-								<div class="stat-label">严重</div>
+						<div class="stat-item combined">
+							<div class="stat-number">
+								{{ severityStats.high || 0 }}/{{ severityStats.medium || 0 }}/{{ severityStats.low || 0 }}
 							</div>
-							<div class="stat-item">
-								<div class="stat-number">{{ severityStats.medium || 0 }}</div>
-								<div class="stat-label">一般</div>
+							<div class="stat-label">严重/一般/轻微</div>
+						</div>
+						<div class="stat-item combined">
+							<div class="stat-number large">
+								{{ defectDiscoveryRate }}%
 							</div>
-							<div class="stat-item">
-								<div class="stat-number">{{ severityStats.low || 0 }}</div>
-								<div class="stat-label">轻微</div>
-							</div>
+							<div class="stat-label">缺陷发现率</div>
 						</div>
 					</div>
 
@@ -405,6 +393,24 @@
 	const monthlyTaskModalVisible = ref(false);
 	const selectedMonthlyTaskMonth = ref('');
 	const monthlyTaskDetails = ref<any[]>([]);
+
+	const totalInspections = ref(0);
+	const inspectionsWithDefects = ref(0);
+	const defectDiscoveryRate = computed(() => {
+		if (totalInspections.value === 0) return 0;
+		return Math.round((inspectionsWithDefects.value / totalInspections.value) * 100);
+	});
+
+	// 获取缺陷发现率数据的方法
+	const fetchDefectDiscoveryStats = async () => {
+		try {
+			const res = await axios.get(`${API_URL_TASK}/defect-discovery-stats`);
+			totalInspections.value = res.data.totalInspections;
+			inspectionsWithDefects.value = res.data.inspectionsWithDefects;
+		} catch (e) {
+			console.error('获取缺陷发现率数据失败', e);
+		}
+	};
 
 	// 添加获取严重程度样式类的方法
 	const getSeverityClass = (severity : string | null) => {
@@ -1243,7 +1249,8 @@
 				fetchMonthlyDefectStats(),
 				fetchDailyTaskStats(),
 				fetchMonthlyTaskCount(),
-				fetchPersonTaskStats()
+				fetchPersonTaskStats(),
+				fetchDefectDiscoveryStats()
 			])
 		} catch (error) {
 			console.error('初始化数据失败:', error)
@@ -1354,14 +1361,18 @@
 
 	.stat-item {
 		text-align: center;
-		border: 1px solid rgba(0, 168, 232, 0.3);
-		padding: 10px 5px;
+		padding: 10px;
+		flex: 1;
+		margin: 5px;
+		/* 新增：添加外边距，使每个统计项之间有间隔 */
+		background: rgba(0, 168, 232, 0.1);
+		/* 新增：添加背景颜色 */
 		border-radius: 4px;
-		background: rgba(0, 168, 232, 0.05);
+		/* 新增：添加圆角 */
 	}
 
 	.stat-number {
-		font-size: 18px;
+		font-size: 24px;
 		font-weight: bold;
 		color: #00a8e8;
 	}
@@ -1372,7 +1383,7 @@
 	}
 
 	.stat-label {
-		font-size: 12px;
+		font-size: 14px;
 		margin-top: 5px;
 		color: #aaa;
 	}
@@ -1679,5 +1690,22 @@
 
 	.severity-low {
 		color: #FFFF00;
+	}
+
+	.stat-item.combined {
+		padding: 8px 5px;
+		/* 适当缩小内边距 */
+	}
+
+	.stat-item.combined .stat-number {
+		font-size: 21px;
+		/* 适当缩小字体大小 */
+	}
+
+	.stat-item.combined .stat-label {
+		font-size: 21px;
+		/* 适当缩小标签字体大小 */
+		color: #00a8e8;
+		/* 设置文字颜色为蓝色 */
 	}
 </style>
