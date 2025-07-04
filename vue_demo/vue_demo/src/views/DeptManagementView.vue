@@ -166,16 +166,18 @@ const handleNodeClick = (data) => {
 }
 
 const handleAdd = () => {
-  dialogTitle.value = '新增部门'
+  dialogTitle.value = '新增部门';
   formData.value = {
     id: null,
     name: '',
     code: '',
     parentId: null,
-    status: '0'
-  }
-  dialogVisible.value = true
-}
+    status: '0',
+    orderNum: 0,  // 明确设置默认值
+    // createTime: new Date().toISOString() // 可选
+  };
+  dialogVisible.value = true;
+};
 
 const handleAddSub = (parentId) => {
   dialogTitle.value = '新增子部门'
@@ -190,20 +192,26 @@ const handleAddSub = (parentId) => {
 }
 
 const submitForm = async () => {
+  // 补全缺失字段
+  const submitData = {
+    ...formData.value,
+    orderNum: formData.value.orderNum || 0, // 默认值为0
+    createTime: new Date().toISOString()    // 可选：补全创建时间
+  };
+
   try {
-    if (formData.value.id) {
-      await apiClient.put(`/departments/${formData.value.id}`, formData.value)
-      ElMessage.success('更新成功')
+    if (submitData.id) {
+      await apiClient.put(`/departments/${submitData.id}`, submitData);
     } else {
-      await apiClient.post('/departments', formData.value)
-      ElMessage.success('新增成功')
+      await apiClient.post('/departments', submitData);
     }
-    dialogVisible.value = false
-    fetchDeptTree()
+    ElMessage.success('操作成功');
+    dialogVisible.value = false;
+    fetchDeptTree();
   } catch (error) {
-    ElMessage.error('操作失败: ' + error.response?.data?.message || error.message)
+    ElMessage.error('操作失败: ' + error.response?.data?.message || error.message);
   }
-}
+};
 
 // 生命周期钩子
 onMounted(() => {
