@@ -13,29 +13,29 @@
 						<div class="card-title">巡视数据统计</div>
 						<div class="stats-grid">
 							<div class="stat-item">
-								<div class="stat-number">123</div>
+								<div class="stat-number">{{ todayTaskCount }}</div>
 								<div class="stat-label">今日巡视数</div>
 							</div>
 							<div class="stat-item">
-								<div class="stat-number">98</div>
+								<div class="stat-number">{{ yesterdayTaskCount }}</div>
 								<div class="stat-label">昨日巡视数</div>
 							</div>
 							<div class="stat-item">
-								<div class="stat-number">25%</div>
+								<div class="stat-number">{{ taskGrowthRate }}%</div>
 								<div class="stat-label">环比增长</div>
 							</div>
 						</div>
 						<div class="stats-grid">
 							<div class="stat-item">
-								<div class="stat-number">1.2km</div>
+								<div class="stat-number">{{ todayDistance }}km</div>
 								<div class="stat-label">今日巡视距离</div>
 							</div>
 							<div class="stat-item">
-								<div class="stat-number">0.9km</div>
+								<div class="stat-number">{{ yesterdayDistance }}km</div>
 								<div class="stat-label">昨日巡视距离</div>
 							</div>
 							<div class="stat-item">
-								<div class="stat-number">33%</div>
+								<div class="stat-number">{{ distanceGrowthRate }}%</div>
 								<div class="stat-label">环比增长</div>
 							</div>
 						</div>
@@ -48,7 +48,7 @@
 
 					<div class="card">
 						<div class="card-title">人员数据统计</div>
-						<div class="chart-area">柱状图 - 人员任务统计</div>
+						<div class="chart-area" ref="personTaskChart" style="height: 100%; min-height: 250px;"></div>
 					</div>
 				</div>
 
@@ -57,11 +57,15 @@
 					<div class="center-stats">
 						<div class="center-stats-row">
 							<div class="center-stat">
-								<div class="center-stat-number">1,234</div>
-								<div class="center-stat-label">巡视总距离</div>
+								<div class="center-stat-number">
+									{{ formatDistance(taskStore.taskStats.totalDistance) }}
+								</div>
+								<div class="center-stat-label">巡视总距离(公里)</div>
 							</div>
 							<div class="center-stat">
-								<div class="center-stat-number">5,678</div>
+								<div class="center-stat-number">
+									{{ taskStore.taskStats.totalTasks || 0 }}
+								</div>
 								<div class="center-stat-label">巡视总次数</div>
 							</div>
 						</div>
@@ -124,7 +128,7 @@
 
 					<div class="card">
 						<div class="card-title">每月巡检次数</div>
-						<div class="chart-area">折线图 - 月度巡检趋势</div>
+						<div class="chart-area" ref="monthlyTaskChart" style="height: 100%; min-height: 200px;"></div>
 					</div>
 
 					<div class="card">
@@ -188,12 +192,13 @@
 							<tr v-for="defect in recentDefects" :key="defect.id">
 								<td>{{ defect.defectNo || 'DEF-' + defect.id }}</td>
 								<td>{{ defect.location || '-' }}</td>
-								<td>{{ defect.severity || '-' }}</td>
-								<td :class="getStatusClass(defect.status)">{{ defect.status || '-' }}</td>
+								<td :class="getSeverityClass(defect.severity)" style="background-color: transparent;">
+									{{ defect.severity || '-' }}
+								</td>
+								<td :class="getStatusClass(defect.status)" style="background-color: transparent;">
+									{{ defect.status || '-' }}
+								</td>
 								<td>{{ formatDate(defect.reportTime) }}</td>
-							</tr>
-							<tr v-if="recentDefects.length === 0">
-								<td colspan="5" style="text-align: center;">暂无数据</td>
 							</tr>
 						</tbody>
 					</table>
@@ -273,6 +278,94 @@
 				</div>
 			</div>
 		</div>
+
+		<!-- 人员任务详情模态框 -->
+		<div v-if="personTaskModalVisible" class="modal" @click.self="closePersonTaskModal">
+			<div class="modal-content" style="width: 800px; max-height: 80vh;">
+				<span class="close" @click="closePersonTaskModal">&times;</span>
+				<h3 style="margin-bottom: 20px;">人员任务详情 - {{ selectedPerson }}</h3>
+
+				<div class="defect-stats">
+					<div class="stat-row">
+						<div class="stat-item">
+							<div class="stat-number">{{ personTaskStatsDetails.total }}</div>
+							<div class="stat-label">任务总数</div>
+						</div>
+						<!-- 可以根据实际需求添加更多统计信息 -->
+					</div>
+				</div>
+
+				<div class="defect-list">
+					<h4>该人员任务记录</h4>
+					<table class="mini-table">
+						<thead>
+							<tr>
+								<th>任务编号</th>
+								<th>任务名称</th>
+								<th>任务状态</th>
+								<th>执行时间</th>
+								<th>巡检范围</th>
+								<th>巡检距离</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr v-for="task in personTaskDetails" :key="task.id">
+								<td>{{ task.taskNo || 'TASK-' + task.id }}</td>
+								<td>{{ task.taskName || '-' }}</td>
+								<td :class="getStatusClass(task.status)">{{ task.status || '-' }}</td>
+								<td>{{ formatDate(task.plannedStartTime) }} 至 {{ formatDate(task.plannedEndTime) }}</td>
+								<td>{{ task.inspectionScope || '-' }}</td>
+								<td>{{ task.inspectionDistance ? task.inspectionDistance + ' 公里' : '未设置' }}</td>
+							</tr>
+							<tr v-if="personTaskDetails.length === 0">
+								<td colspan="7" style="text-align: center;">暂无数据</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+			</div>
+		</div>
+
+		<!-- 每月巡检详情模态框 -->
+		<div v-if="monthlyTaskModalVisible" class="modal" @click.self="monthlyTaskModalVisible = false">
+			<div class="modal-content" style="width: 800px; max-height: 80vh;">
+				<span class="close" @click="monthlyTaskModalVisible = false">&times;</span>
+				<h3 style="margin-bottom: 20px;">{{ selectedMonthlyTaskMonth }} 巡检详情</h3>
+
+				<div class="defect-list">
+					<h4>该月任务记录</h4>
+					<table class="mini-table">
+						<thead>
+							<tr>
+								<th>任务编号</th>
+								<th>任务名称</th>
+								<th>任务状态</th>
+								<th>计划开始时间</th>
+								<th>计划结束时间</th>
+								<th>巡检线路</th>
+								<th>巡检范围</th>
+								<th>巡视距离</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr v-for="task in monthlyTaskDetails" :key="task.id">
+								<td>{{ task.taskNo || 'TASK-' + task.id }}</td>
+								<td>{{ task.taskName || '-' }}</td>
+								<td :class="getStatusClass(task.status)">{{ task.status || '-' }}</td>
+								<td>{{ formatDate(task.plannedStartTime) }}</td>
+								<td>{{ formatDate(task.plannedEndTime) }}</td>
+								<td>{{ task.inspectionLine || '-' }}</td>
+								<td>{{ task.inspectionScope || '-' }}</td>
+								<td>{{ task.inspectionDistance ? task.inspectionDistance + ' 公里' : '未设置' }}</td>
+							</tr>
+							<tr v-if="monthlyTaskDetails.length === 0">
+								<td colspan="8" style="text-align: center;">暂无数据</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+			</div>
+		</div>
 	</div>
 </template>
 
@@ -281,8 +374,353 @@
 	import router from '@/router'
 	import axios from 'axios'
 	import * as echarts from 'echarts'
+	import { useTaskStore } from '../stores/task'
 
 	const API_URL = 'http://localhost:8080/api/defects'
+	const API_URL_TASK = 'http://localhost:8080/api/tasks'
+
+
+	const taskStore = useTaskStore()
+
+	const todayTaskCount = ref(0);
+	const yesterdayTaskCount = ref(0);
+	const taskGrowthRate = ref(0);
+	const todayDistance = ref(0);
+	const yesterdayDistance = ref(0);
+	const distanceGrowthRate = ref(0);
+
+	const monthlyTaskChart = ref<HTMLElement | null>(null)
+	const monthlyTaskData = ref<{ month : string; count : number }[]>([])
+
+	const personTaskChart = ref<HTMLElement | null>(null)
+	const personTaskStats = ref<{ executor : string; taskCount : number }[]>([])
+
+	const personTaskModalVisible = ref(false)
+	const selectedPerson = ref('')
+	const personTaskStatsDetails = ref({
+		total: 0
+	})
+	const personTaskDetails = ref<any[]>([])
+
+	const monthlyTaskModalVisible = ref(false);
+	const selectedMonthlyTaskMonth = ref('');
+	const monthlyTaskDetails = ref<any[]>([]);
+
+	// 添加获取严重程度样式类的方法
+	const getSeverityClass = (severity : string | null) => {
+		if (!severity) return '';
+		switch (severity) {
+			case '高': return 'severity-high';
+			case '中': return 'severity-medium';
+			case '低': return 'severity-low';
+			default: return '';
+		}
+	};
+
+
+	// 获取人员的任务统计信息
+	const fetchPersonTaskStats = async () => {
+		try {
+			const res = await axios.get(`${API_URL_TASK}/stats/person`)
+			personTaskStats.value = res.data
+			renderPersonTaskChart()
+		} catch (e) {
+			console.error('获取人员任务统计信息失败', e)
+		}
+	}
+
+	// 渲染人员任务统计柱状图
+	const renderPersonTaskChart = () => {
+		if (!personTaskChart.value || personTaskStats.value.length === 0) return;
+
+		const chart = echarts.init(personTaskChart.value);
+
+		const xData = personTaskStats.value.map(item => item.executor);
+		const yData = personTaskStats.value.map(item => item.taskCount);
+
+		const option : echarts.EChartsOption = {
+			tooltip: {
+				trigger: 'axis',
+				axisPointer: {
+					type: 'shadow'
+				},
+				backgroundColor: 'rgba(0, 0, 0, 0.7)',
+				textStyle: {
+					color: '#fff'
+				}
+			},
+			xAxis: {
+				type: 'category',
+				data: xData,
+				axisLabel: {
+					color: '#fff',
+					rotate: 45,
+					fontSize: 12
+				},
+				axisLine: {
+					lineStyle: {
+						color: '#00a8e8'
+					}
+				},
+				axisTick: {
+					show: false
+				}
+			},
+			yAxis: {
+				type: 'value',
+				axisLabel: {
+					color: '#fff',
+					fontSize: 12
+				},
+				axisLine: {
+					lineStyle: {
+						color: '#00a8e8'
+					}
+				},
+				splitLine: {
+					lineStyle: {
+						color: 'rgba(0, 168, 232, 0.2)'
+					}
+				},
+				axisTick: {
+					show: false
+				}
+			},
+			series: [
+				{
+					data: yData,
+					type: 'bar',
+					itemStyle: {
+						color: new echarts.graphic.LinearGradient(
+							0, 0, 0, 1,
+							[
+								{ offset: 0, color: '#00a8e8' },
+								{ offset: 1, color: '#007bbf' }
+							]
+						),
+						borderRadius: [5, 5, 0, 0]
+					},
+					barWidth: '60%',
+					label: {
+						show: true,
+						position: 'top',
+						color: '#fff',
+						fontSize: 12
+					}
+				}
+			],
+			grid: {
+				left: '5%',
+				right: '5%',
+				bottom: '15%',
+				top: '10%',
+				containLabel: true
+			}
+		};
+
+		chart.setOption(option);
+
+		// 添加点击事件
+		chart.on('click', (params : echarts.ECElementEvent) => {
+			const data = params.data as number;
+			const executor = xData[params.dataIndex];
+			if (executor) {
+				selectedPerson.value = executor;
+				(async () => {
+					await fetchPersonTaskDetails(executor);
+					personTaskModalVisible.value = true;
+				})();
+			}
+		});
+
+		// 窗口大小变化时重绘
+		const resizeHandler = () => chart.resize();
+		window.addEventListener('resize', resizeHandler);
+		onUnmounted(() => {
+			window.removeEventListener('resize', resizeHandler);
+			chart.dispose();
+		});
+	};
+
+	// 获取指定人员的任务详细信息
+	const fetchPersonTaskDetails = async (executor : string) => {
+		try {
+			const res = await axios.get(`${API_URL_TASK}/person-detail`, {
+				params: {
+					executor
+				}
+			});
+			personTaskStatsDetails.value = {
+				total: res.data.length
+			};
+			personTaskDetails.value = res.data;
+		} catch (e) {
+			console.error('获取人员任务详情失败', e);
+		}
+	};
+
+	// 获取每月的巡检次数
+	const fetchMonthlyTaskCount = async () => {
+		try {
+			const res = await axios.get(`${API_URL_TASK}/monthly-count`)
+			monthlyTaskData.value = res.data.map((item : any) => ({
+				month: item.month,
+				count: item.count || 0
+			}))
+
+			// 数据获取后渲染图表
+			renderMonthlyTaskChart()
+		} catch (e) {
+			console.error('获取每月巡检次数失败', e)
+			monthlyTaskData.value = []
+		}
+	}
+
+	const closePersonTaskModal = () => {
+		personTaskModalVisible.value = false
+	}
+
+	// 渲染每月巡检次数折线图
+	const renderMonthlyTaskChart = () => {
+		if (!monthlyTaskChart.value || monthlyTaskData.value.length === 0) return;
+
+		const chart = echarts.init(monthlyTaskChart.value);
+
+		// 只提取月份信息
+		const xData = monthlyTaskData.value.map(item => item.month.split('-')[1]);
+		const yData = monthlyTaskData.value.map(item => item.count);
+
+		// 配置项
+		const option : echarts.EChartsOption = {
+			tooltip: {
+				trigger: 'axis',
+				backgroundColor: 'rgba(0, 0, 0, 0.7)', // 修改提示框背景颜色
+				textStyle: {
+					color: '#fff' // 修改提示框文字颜色
+				}
+			},
+			xAxis: {
+				type: 'category',
+				data: xData,
+				axisLabel: {
+					color: '#fff', // 修改 x 轴标签颜色为白色
+					rotate: 45, // 旋转 x 轴标签
+					fontSize: 14 // 增大 x 轴标签字体大小
+				},
+				axisLine: {
+					lineStyle: {
+						color: '#999' // 修改 x 轴轴线颜色
+					}
+				},
+				splitLine: {
+					show: false // 隐藏 x 轴分割线
+				}
+			},
+			yAxis: {
+				type: 'value',
+				axisLabel: {
+					color: '#fff', // 修改 y 轴标签颜色为白色
+					fontSize: 14 // 增大 y 轴标签字体大小
+				},
+				axisLine: {
+					lineStyle: {
+						color: '#999' // 修改 y 轴轴线颜色
+					}
+				},
+				splitLine: {
+					lineStyle: {
+						color: '#eee' // 修改 y 轴分割线颜色
+					}
+				}
+			},
+			series: [
+				{
+					data: yData,
+					type: 'line',
+					smooth: true,
+					itemStyle: {
+						color: '#007BFF' // 修改数据点颜色
+					},
+					lineStyle: {
+						color: '#007BFF', // 修改线条颜色
+						width: 2 // 修改线条宽度
+					},
+					areaStyle: {
+						color: 'rgba(0, 123, 255, 0.1)' // 添加区域填充颜色
+					}
+				}
+			],
+			grid: {
+				left: '5%',
+				right: '5%',
+				bottom: '15%',
+				top: '10%',
+				containLabel: true
+			}
+		};
+
+		chart.setOption(option);
+
+		// 添加点击事件
+		chart.on('click', (params : echarts.ECElementEvent) => {
+			const month = monthlyTaskData.value[params.dataIndex].month;
+			if (month) {
+				selectedMonthlyTaskMonth.value = month;
+				(async () => {
+					await fetchMonthlyTaskDetails(month);
+					monthlyTaskModalVisible.value = true;
+				})();
+			}
+		});
+
+		// 窗口大小变化时重绘
+		const resizeHandler = () => chart.resize();
+		window.addEventListener('resize', resizeHandler);
+		onUnmounted(() => {
+			window.removeEventListener('resize', resizeHandler);
+			chart.dispose();
+		});
+	};
+
+	// 获取指定月份的巡检详细信息
+	const fetchMonthlyTaskDetails = async (month : string) => {
+		try {
+			const res = await axios.get(`${API_URL_TASK}/monthly-detail`, {
+				params: { month }
+			});
+			monthlyTaskDetails.value = res.data;
+		} catch (e) {
+			console.error('获取每月巡检详情失败', e);
+			monthlyTaskDetails.value = [];
+		}
+	};
+
+	// 获取今日巡检数量、昨日巡检数量、今日巡视距离、昨日巡视距离
+	const fetchDailyTaskStats = async () => {
+		try {
+			const res = await axios.get(`${API_URL_TASK}/daily-stats`);
+			todayTaskCount.value = res.data.todayTaskCount;
+			yesterdayTaskCount.value = res.data.yesterdayTaskCount;
+			todayDistance.value = res.data.todayDistance;
+			yesterdayDistance.value = res.data.yesterdayDistance;
+
+			// 计算环比增长
+			if (yesterdayTaskCount.value !== 0) {
+				taskGrowthRate.value = parseFloat((((todayTaskCount.value - yesterdayTaskCount.value) / yesterdayTaskCount.value) * 100).toFixed(1));
+			}
+			if (yesterdayDistance.value !== 0) {
+				distanceGrowthRate.value = parseFloat((((todayDistance.value - yesterdayDistance.value) / yesterdayDistance.value) * 100).toFixed(1));
+			}
+		} catch (e) {
+			console.error('获取每日任务统计数据失败', e);
+		}
+	};
+
+	// 添加格式化距离的方法
+	const formatDistance = (distance : number | undefined) => {
+		if (distance === undefined || distance === null) return '0.0'
+		return distance.toFixed(1)
+	}
 
 	// 缺陷统计
 	const defectStats = ref({
@@ -409,9 +847,9 @@
 
 	// 渲染饼图
 	const renderPieChart = () => {
-		if (!pieChart.value || defectTypes.value.length === 0) return
+		if (!pieChart.value || defectTypes.value.length === 0) return;
 
-		const chart = echarts.init(pieChart.value)
+		const chart = echarts.init(pieChart.value);
 
 		// 配置项
 		const option : echarts.EChartsOption = {
@@ -425,14 +863,14 @@
 				top: 'center',
 				textStyle: {
 					color: '#fff',
-					fontSize: 12
+					fontSize: 14 // 增大图例文字大小
 				},
 				itemWidth: 14,
 				itemHeight: 14,
 				itemGap: 10,
 				formatter: (name) => {
-					const data = defectTypes.value.find(item => item.type === name)
-					return `${name} (${data?.count || 0})`
+					const data = defectTypes.value.find(item => item.type === name);
+					return `${name} (${data?.count || 0})`;
 				}
 			},
 			series: [
@@ -459,13 +897,7 @@
 						fontSize: 12
 					},
 					labelLine: {
-						show: true,
-						length: 10,
-						length2: 5,
-						smooth: true,
-						lineStyle: {
-							color: 'rgba(255, 255, 255, 0.3)'
-						}
+						show: false // 移除标签线
 					},
 					emphasis: {
 						scale: true,
@@ -488,10 +920,7 @@
 					}))
 				}
 			],
-			color: [
-				'#1E90FF', '#00BFFF', '#87CEFA', '#4682B4', '#4169E1',
-				'#6495ED', '#00CED1', '#5F9EA0', '#20B2AA', '#008B8B'
-			],
+			color: ['#00fff7', '#002eff', '#8af7eb', '#a5c9f4', '#6f6490', '#ae74ff', '#7a3cff', '#0b89ff', '#068bff', '#03afff'],
 			grid: {
 				top: 0,
 				left: 0,
@@ -499,26 +928,27 @@
 				bottom: 0,
 				containLabel: true
 			}
-		}
+		};
 
-		chart.setOption(option)
+		chart.setOption(option);
 
 		// 添加点击事件
 		chart.on('click', (params : echarts.ECElementEvent) => {
-			const data = params.data as { name : string; value : number }
+			const data = params.data as { name : string; value : number };
 			if (data?.name) {
-				selectedDefectType.value = data.name
-					; (async () => {
-						await fetchDefectTypeDetails(data.name)
-						defectTypeModalVisible.value = true
-					})()
+				selectedDefectType.value = data.name;
+				(async () => {
+					await fetchDefectTypeDetails(data.name);
+					defectTypeModalVisible.value = true;
+				})();
 			}
-		})
+		});
 
 		window.addEventListener('resize', () => {
-			chart.resize()
-		})
-	}
+			chart.resize();
+		});
+	};
+
 
 	// 获取缺陷类型详情
 	const fetchDefectTypeDetails = async (defectType : string) => {
@@ -557,7 +987,6 @@
 		defectTypeModalVisible.value = false
 	}
 
-	// 从DefectManagement.vue复用的方法
 	function getStatusClass(status : string | null) {
 		if (!status) return ''
 		switch (status) {
@@ -633,8 +1062,8 @@
 
 		const chart = echarts.init(lineChart.value);
 
-		// 准备数据
-		const months = monthlyDefectStats.value.map(item => item.month);
+		// 只提取月份信息
+		const months = monthlyDefectStats.value.map(item => item.month.split('-')[1]);
 		const counts = monthlyDefectStats.value.map(item => item.count);
 
 		// 配置项 - 面积图
@@ -647,7 +1076,7 @@
 				borderWidth: 1,
 				textStyle: {
 					color: '#fff',
-					fontSize: 12
+					fontSize: 14 // 增大提示框文字大小
 				},
 				axisPointer: {
 					type: 'shadow',
@@ -674,8 +1103,8 @@
 					}
 				},
 				axisLabel: {
-					color: '#aaa',
-					fontSize: 10,
+					color: '#fff', // 修改 x 轴标签颜色为白色
+					fontSize: 14, // 增大 x 轴标签字体大小
 					rotate: 30
 				},
 				axisTick: {
@@ -692,8 +1121,8 @@
 					}
 				},
 				axisLabel: {
-					color: '#aaa',
-					fontSize: 10
+					color: '#fff', // 修改 y 轴标签颜色为白色
+					fontSize: 14 // 增大 y 轴标签字体大小
 				},
 				splitLine: {
 					lineStyle: {
@@ -722,10 +1151,10 @@
 				data: counts,
 				smooth: true,
 				symbol: 'circle',
-				symbolSize: 6,
+				symbolSize: 8, // 增大数据点大小
 				showSymbol: true,
 				lineStyle: {
-					width: 2,
+					width: 3, // 增大线条宽度
 					color: '#00a8e8'
 				},
 				itemStyle: {
@@ -743,7 +1172,7 @@
 		chart.off('click'); // 先移除旧的事件
 		chart.on('click', (params) => {
 			if (params.componentType === 'series') {
-				const month = months[params.dataIndex];
+				const month = monthlyDefectStats.value[params.dataIndex].month;
 				console.log('点击月份:', month); // 调试日志
 				selectedMonth.value = month;
 				fetchMonthlyDetails(month).then(() => {
@@ -805,10 +1234,20 @@
 		monthlyModalVisible.value = false
 	}
 
-	onMounted(() => {
-		fetchDefectStats()
-		fetchDefectTypeStats()
-		fetchMonthlyDefectStats()
+	onMounted(async () => {
+		try {
+			await taskStore.fetchTaskStats()
+			await Promise.all([
+				fetchDefectStats(),
+				fetchDefectTypeStats(),
+				fetchMonthlyDefectStats(),
+				fetchDailyTaskStats(),
+				fetchMonthlyTaskCount(),
+				fetchPersonTaskStats()
+			])
+		} catch (error) {
+			console.error('初始化数据失败:', error)
+		}
 	})
 </script>
 
@@ -1186,5 +1625,59 @@
 		padding: 2px 6px;
 		border-radius: 3px;
 		font-size: 12px;
+	}
+
+	.mini-table {
+		width: 100%;
+		border-collapse: collapse;
+		margin-top: 20px;
+	}
+
+	.mini-table th,
+	.mini-table td {
+		padding: 10px;
+		border: 1px solid #00a8e8;
+		color: #fff;
+		text-align: center;
+	}
+
+	.mini-table th {
+		background-color: rgba(0, 168, 232, 0.2);
+	}
+
+	.mini-table tr:nth-child(even) {
+		background-color: rgba(0, 168, 232, 0.1);
+	}
+
+	.mini-table tr:hover {
+		background-color: rgba(0, 168, 232, 0.3);
+	}
+
+	.tag-waiting {
+		color: #FFC300;
+	}
+
+	.tag-info {
+		color: #87CEFA;
+	}
+
+	.tag-processing {
+		color: #98FB98;
+	}
+
+	.tag-success {
+		color: #00FF00;
+	}
+
+	.severity-high {
+		color: #FF0000;
+	}
+
+	.severity-medium {
+		color: #FFA500;
+	}
+
+	.severity-low {
+		color: #FFFF00;
 	}
 </style>

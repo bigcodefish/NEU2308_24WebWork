@@ -2,7 +2,7 @@ import axios from 'axios'
 import type { Task } from '../stores/task'
 
 // 基础API配置
-const API_BASE_URL = '/api'
+const API_BASE_URL = 'http://localhost:8080/api'
 
 // 获取任务列表
 export const getTasks = async (): Promise<Task[]> => {
@@ -53,4 +53,9 @@ export const getTaskById = async (id: number): Promise<Task> => {
 
 export const searchTasks = async (params: any) => {
   return axios.post('/api/tasks/search', params);
+}
+
+export const getTaskStats = async (): Promise<{totalTasks: number; totalDistance: number}> => {
+  const response = await axios.get(`${API_BASE_URL}/tasks/stats`)
+  return response.data
 }

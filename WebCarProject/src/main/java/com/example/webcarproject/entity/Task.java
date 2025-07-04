@@ -29,9 +29,18 @@ public class Task {
     private String executionResult;
     private Integer issuesFound;
     private String creator;
+    private Double inspectionDistance; // 巡视距离，单位：公里
 
     public String getCreator() {
         return creator;
+    }
+
+    public Double getInspectionDistance() {
+        return inspectionDistance;
+    }
+
+    public void setInspectionDistance(Double inspectionDistance) {
+        this.inspectionDistance = inspectionDistance;
     }
 
     public void setCreator(String creator) {
