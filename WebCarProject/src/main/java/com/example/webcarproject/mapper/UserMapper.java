@@ -8,7 +8,15 @@ import java.util.List;
 
 @Mapper
 public interface UserMapper {
+    @Select("SELECT * FROM user_info WHERE username = #{username}")
+    User findByUsername(String username);
 
+    @Insert("INSERT INTO user_info (username, password, salt) " +
+            "VALUES(#{username}, #{password}, #{salt})")
+    @Options(useGeneratedKeys = true, keyProperty = "id", keyColumn = "id")
+    int insertlogin(User auth);
+    @Select("SELECT COUNT(*) FROM user_info  WHERE username = #{username}")
+    int countByUsername(String username);
     @Select("SELECT id, username, password, name, email, phone, department_id as departmentId, " +
             "status, create_time as createTime " +
             "FROM user_info " +

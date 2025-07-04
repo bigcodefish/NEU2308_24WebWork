@@ -99,7 +99,7 @@ const checkPasswordStrength = () => {
   strengthLevel.value = level;
 };
   const checkUsername = async () => {
-    const res = await axios.get('/api/auth/checkUsername', {
+    const res = await axios.get('/api/users/checkUsername', {
       params: { username: form.value.username }
     });
     if (res.data.exists) {
@@ -129,7 +129,7 @@ const handleRegister = async () => {
   if (!await checkUsername()) return;
     
     try {
-      const res = await axios.post('http://localhost:8080/api/auth/register', form.value);
+      const res = await axios.post('http://localhost:8080/api/users/register', form.value);
       if (res.data.success) {
         alert('注册成功');
         router.push('/');

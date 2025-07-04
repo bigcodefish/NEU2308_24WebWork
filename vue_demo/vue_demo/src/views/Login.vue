@@ -119,7 +119,7 @@
 
 
   try {
-    const res = await axios.post('http://localhost:8080/api/auth/login', {
+    const res = await axios.post('http://localhost:8080/api/users/login', {
       username: username.value,
       password: password.value
     });
