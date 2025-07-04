@@ -121,14 +121,32 @@ const calendarOptions = ref({
   },
   // 添加自定义日期单元格内容
   dayCellContent: (arg: DayCellContentArg) => {
-    const dateStr = arg.date.toISOString().split('T')[0];
+    const date = arg.date;
+    const day = date.getDate();
+    const isOtherMonth = date.getMonth() !== currentDate.value.getMonth();
+    const isToday =
+      date.getDate() === new Date().getDate() &&
+      date.getMonth() === new Date().getMonth() &&
+      date.getFullYear() === new Date().getFullYear();
+
+    // 日期数字样式
+    let dayNumberClass = 'calendar-day-number';
+    if (isOtherMonth) dayNumberClass += ' calendar-day-other-month';
+    if (isToday) dayNumberClass += ' calendar-day-today';
+
+    // 任务缩略信息
+    const dateStr = date.toISOString().split('T')[0];
     const tasksForDay = getTasksByDate(dateStr);
-    if (tasksForDay.length === 0) return { html: '' };
-    // 创建任务缩略信息HTML
     const tasksHtml = tasksForDay.map(task =>
-      `<div class="task-thumbnail">${task.taskType}</div>`
+      `<div class=\"task-thumbnail\">${task.taskType}</div>`
     ).join('');
-    return { html: `<div class="day-tasks">${tasksHtml}</div>` };
+
+    return {
+      html: `
+        <div class=\"${dayNumberClass}\">${day}</div>
+        <div class=\"day-tasks\">${tasksHtml}</div>
+      `
+    };
   }
 });
 
@@ -330,5 +348,38 @@ onMounted(() => {
     max-height: 30px;
     font-size: 8px;
   }
+}
+
+.calendar-day-number {
+  font-size: 16px;
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 2px;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: transparent;
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  z-index: 2;
+}
+
+.calendar-day-other-month {
+  color: #bbb;
+  font-weight: normal;
+  opacity: 0.7;
+}
+
+.calendar-day-today {
+  background: #0066cc;
+  color: #fff !important;
+}
+
+:deep(.fc-daygrid-day-frame) {
+  position: relative;
 }
 </style>

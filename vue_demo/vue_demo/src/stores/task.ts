@@ -20,6 +20,7 @@ export interface Task {
   startLocation: string | null
   endLocation: string | null
   inspectionScope: string | null
+  inspectionDistance: number | null
   status: string
   completionRate: number
   executionResult: string | null

@@ -45,6 +45,10 @@
         <span class="value">{{ task.inspectionScope }}</span>
       </div>
       <div class="detail-row">
+        <span class="label">巡视距离：</span>
+        <span class="value">{{ task.inspectionDistance ? task.inspectionDistance + ' 公里' : '未设置' }}</span>
+      </div>
+      <div class="detail-row">
         <span class="label">任务状态：</span>
         <span class="value">{{ task.status }}</span>
       </div>

@@ -27,7 +27,7 @@
     <div class="toolbar">
       <div style="display: flex; gap: 10px;">
         <div class="btn btn-primary" @click="handleCreateTask">创建任务</div>
-        <div class="btn">导出</div>
+        <div class="btn" @click="handleExport">导出</div>
       </div>
       <div class="btn" @click="refreshTasks" :class="{ 'loading': taskStore.loading }">
         {{ taskStore.loading ? '刷新中...' : '刷新' }}
@@ -44,6 +44,7 @@
             <th>任务类型</th>
             <th>起始地点</th>
             <th>终止地点</th>
+            <th>巡视距离</th>
             <th>优先级</th>
             <th>执行人</th>
             <th>协助人</th>
@@ -62,6 +63,7 @@
             <td>{{ task.taskType }}</td>
             <td>{{ task.startLocation }}</td>
             <td>{{ task.endLocation }}</td>
+            <td>{{ task.inspectionDistance ? task.inspectionDistance + ' 公里' : '-' }}</td>
             <td>{{ task.priority }}</td>
             <td>{{ task.executor }}</td>
             <td>{{ task.assistants }}</td>
@@ -101,6 +103,20 @@
       @close="taskEditVisible = false"
       @submit="handleTaskSubmit"
     />
+
+    <div v-if="exportDialogVisible" class="export-dialog-mask">
+      <div class="export-dialog">
+        <div class="export-dialog-title">导出任务表格</div>
+        <div class="export-dialog-content">
+          <label>文件名：</label>
+          <input v-model="exportFileName" style="width: 220px; padding: 6px; border-radius: 4px; border: 1px solid #ccc;" />
+        </div>
+        <div class="export-dialog-actions">
+          <button @click="confirmExport" class="btn btn-primary">导出</button>
+          <button @click="exportDialogVisible = false" class="btn">取消</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -222,6 +238,64 @@ const handleTaskSubmit = async (taskData: Partial<Task>) => {
     alert('操作失败，请重试');
   }
 };
+
+// 导出弹窗相关
+const exportDialogVisible = ref(false);
+const exportFileName = ref(getDefaultExportFileName());
+
+function getDefaultExportFileName() {
+  const now = new Date();
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, '0');
+  const dd = String(now.getDate()).padStart(2, '0');
+  return `任务列表${yyyy}${mm}${dd}`;
+}
+
+function handleExport() {
+  exportFileName.value = getDefaultExportFileName();
+  exportDialogVisible.value = true;
+}
+
+function confirmExport() {
+  exportDialogVisible.value = false;
+  exportTasksToCSV(exportFileName.value);
+}
+
+function exportTasksToCSV(fileName: string) {
+  // 1. 生成 CSV 内容
+  const headers = [
+    '序号','任务编号','任务名称','任务类型','起始地点','终止地点','巡视距离','优先级','执行人','协助人','计划开始','计划结束','状态','完成度'
+  ];
+  const rows = filteredTasks.map((task, idx) => [
+    idx + 1,
+    task.taskId,
+    task.taskName,
+    task.taskType,
+    task.startLocation,
+    task.endLocation,
+    task.inspectionDistance ? task.inspectionDistance + ' 公里' : '-',
+    task.priority,
+    task.executor,
+    task.assistants,
+    task.plannedStartTime,
+    task.plannedEndTime,
+    task.status,
+    task.completionRate + '%'
+  ]);
+  const csvContent = [headers, ...rows].map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\r\n');
+
+  // 2. 添加 UTF-8 BOM 以防止中文乱码
+  const BOM = '\uFEFF';
+  const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = (fileName || '任务列表') + '.csv';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
 
 // 组件挂载时获取数据
 onMounted(() => {
@@ -409,5 +483,40 @@ onMounted(() => {
     padding: 8px 5px;
     font-size: 12px;
   }
+}
+
+.export-dialog-mask {
+  position: fixed;
+  left: 0; top: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.25);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.export-dialog {
+  background: #fff;
+  border-radius: 8px;
+  min-width: 320px;
+  box-shadow: 0 2px 16px rgba(0,0,0,0.18);
+  padding: 24px 20px 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.export-dialog-title {
+  font-size: 18px;
+  font-weight: bold;
+  margin-bottom: 6px;
+}
+.export-dialog-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.export-dialog-actions {
+  display: flex;
+  gap: 16px;
+  justify-content: flex-end;
 }
 </style>
