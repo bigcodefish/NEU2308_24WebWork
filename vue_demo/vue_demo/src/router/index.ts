@@ -11,7 +11,6 @@ declare module 'vue-router' {
 		permissions ?: string[]
 	}
 }
-
 // 系统管理子路由
 const systemRoutes : RouteRecordRaw[] = [
 	{
