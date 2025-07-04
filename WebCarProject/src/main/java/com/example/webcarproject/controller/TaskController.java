@@ -11,6 +11,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api")
+@CrossOrigin(origins = "*")
 public class TaskController {
 
     private final TaskMapper taskMapper;
@@ -80,5 +81,27 @@ public class TaskController {
             taskMapper.delete(id);
         }
         return ResponseEntity.noContent().build();
+    }
+
+
+
+
+    @GetMapping("/tasks/stats")
+    public Map<String, Object> getTaskStats() {
+        // 获取巡视总次数
+        int totalTasks = taskMapper.findAllTasks().size();
+
+        // 获取巡视总距离
+        double totalDistance = taskMapper.findAllTasks().stream()
+                .filter(task -> task.getInspectionDistance() != null)
+                .mapToDouble(Task::getInspectionDistance)
+                .sum();
+
+        System.out.println("后端统计结果 - 总次数: " + totalTasks + ", 总距离: " + totalDistance);
+
+        return Map.of(
+                "totalTasks", totalTasks,
+                "totalDistance", totalDistance
+        );
     }
 }

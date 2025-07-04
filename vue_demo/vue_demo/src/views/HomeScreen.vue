@@ -57,11 +57,15 @@
 					<div class="center-stats">
 						<div class="center-stats-row">
 							<div class="center-stat">
-								<div class="center-stat-number">1,234</div>
-								<div class="center-stat-label">巡视总距离</div>
+								<div class="center-stat-number">
+									{{ formatDistance(taskStore.taskStats.totalDistance) }}
+								</div>
+								<div class="center-stat-label">巡视总距离(公里)</div>
 							</div>
 							<div class="center-stat">
-								<div class="center-stat-number">5,678</div>
+								<div class="center-stat-number">
+									{{ taskStore.taskStats.totalTasks || 0 }}
+								</div>
 								<div class="center-stat-label">巡视总次数</div>
 							</div>
 						</div>
@@ -72,7 +76,7 @@
 							<div>图层1: 路线图</div>
 							<div>图层2: 地铁图</div>
 							<div>图层3: 地图背景</div>
-						</div>
+						</div>	
 						地图可视化区域<br>
 						(地铁路线、巡视轨迹、实时位置)
 					</div>
@@ -281,8 +285,17 @@
 	import router from '@/router'
 	import axios from 'axios'
 	import * as echarts from 'echarts'
+	import { useTaskStore } from '../stores/task'
 
 	const API_URL = 'http://localhost:8080/api/defects'
+
+	const taskStore = useTaskStore()
+
+	// 添加格式化距离的方法
+	const formatDistance = (distance : number | undefined) => {
+		if (distance === undefined || distance === null) return '0.0'
+		return distance.toFixed(1)
+	}
 
 	// 缺陷统计
 	const defectStats = ref({
@@ -805,10 +818,20 @@
 		monthlyModalVisible.value = false
 	}
 
-	onMounted(() => {
-		fetchDefectStats()
-		fetchDefectTypeStats()
-		fetchMonthlyDefectStats()
+	onMounted(async () => {
+	  try {
+	    console.log('HomeScreen: 开始获取任务统计数据...')
+	    await taskStore.fetchTaskStats()
+	    console.log('HomeScreen: 获取到的任务统计数据:', taskStore.taskStats)
+	    
+	    await Promise.all([
+	      fetchDefectStats(),
+	      fetchDefectTypeStats(),
+	      fetchMonthlyDefectStats()
+	    ])
+	  } catch (error) {
+	    console.error('初始化数据失败:', error)
+	  }
 	})
 </script>
 
