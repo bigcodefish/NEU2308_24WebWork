@@ -3,9 +3,14 @@
 		<div class="wireframe">
 			<div class="header">
 				<div class="title">地铁隧道巡线大数据仿真和分析平台</div>
-				<div class="enter-btn" @click="enterSystem">进入系统</div>
+				<div class="enter-btn" @click="toggleDropdown">进入系统</div>
+				<!-- 下拉栏 -->
+				<div v-if="dropdownVisible" class="dropdown-menu">
+					<div class="dropdown-item" @click="navigateTo('/task')">任务管理</div>
+					<div class="dropdown-item" @click="navigateTo('/defect')">缺陷管理</div>
+					<div class="dropdown-item" @click="navigateTo('/system')">系统管理</div>
+				</div>
 			</div>
-
 			<div class="main-content">
 				<!-- 左侧面板 -->
 				<div class="left-panel">
@@ -27,11 +32,11 @@
 						</div>
 						<div class="stats-grid">
 							<div class="stat-item">
-								<div class="stat-number">{{ todayDistance }}km</div>
+								<div class="stat-number">{{ todayDistance.toFixed(1) }}km</div>
 								<div class="stat-label">今日巡视距离</div>
 							</div>
 							<div class="stat-item">
-								<div class="stat-number">{{ yesterdayDistance }}km</div>
+								<div class="stat-number">{{ yesterdayDistance.toFixed(1) }}km</div>
 								<div class="stat-label">昨日巡视距离</div>
 							</div>
 							<div class="stat-item">
@@ -48,7 +53,8 @@
 
 					<div class="card">
 						<div class="card-title">人员数据统计</div>
-						<div class="chart-area" ref="personTaskChart" style="height: 100%; min-height: 250px;"></div>
+						<div class="chart-area" ref="personTaskChart" style="height: 100%; min-height: 250px;">
+						</div>
 					</div>
 				</div>
 
@@ -116,7 +122,8 @@
 
 					<div class="card">
 						<div class="card-title">每月巡检次数</div>
-						<div class="chart-area" ref="monthlyTaskChart" style="height: 100%; min-height: 200px;"></div>
+						<div class="chart-area" ref="monthlyTaskChart" style="height: 100%; min-height: 200px;">
+						</div>
 					</div>
 
 					<div class="card">
@@ -252,7 +259,7 @@
 									<td>{{ defect.defectType || '-' }}</td>
 									<td>{{ defect.location || '-' }}</td>
 									<td>{{ defect.severity || '-' }}</td>
-									<td :class="getStatusClass(defect.status)">
+									<td :class="getStatusClass(defect.status)" style="background-color: transparent;">
 										{{ defect.status || '-' }}
 									</td>
 									<td>{{ formatDate(defect.reportTime) }}</td>
@@ -279,7 +286,6 @@
 							<div class="stat-number">{{ personTaskStatsDetails.total }}</div>
 							<div class="stat-label">任务总数</div>
 						</div>
-						<!-- 可以根据实际需求添加更多统计信息 -->
 					</div>
 				</div>
 
@@ -354,6 +360,9 @@
 				</div>
 			</div>
 		</div>
+		<div class="refresh-countdown">
+			剩余刷新时间: {{ countdown }} 秒
+		</div>
 	</div>
 </template>
 
@@ -367,6 +376,14 @@
 	const API_URL = 'http://localhost:8080/api/defects'
 	const API_URL_TASK = 'http://localhost:8080/api/tasks'
 
+	const dropdownVisible = ref(false)
+	const toggleDropdown = () => {
+		dropdownVisible.value = !dropdownVisible.value
+	}
+	const navigateTo = (path : string) => {
+		router.push(path)
+		dropdownVisible.value = false // 跳转后隐藏下拉栏
+	}
 
 	const taskStore = useTaskStore()
 
@@ -400,6 +417,37 @@
 		if (totalInspections.value === 0) return 0;
 		return Math.round((inspectionsWithDefects.value / totalInspections.value) * 100);
 	});
+
+	const countdown = ref(180) // 初始倒计时为3分钟（180秒）
+	let refreshInterval : NodeJS.Timer | number | null = null // 修改这里的类型定义
+
+	const startCountdown = () => {
+		refreshInterval = setInterval(() => {
+			if (countdown.value > 0) {
+				countdown.value--
+			} else {
+				// 倒计时结束，刷新数据
+				refreshData()
+				countdown.value = 180 // 重置倒计时
+			}
+		}, 1000)
+	}
+
+	const refreshData = async () => {
+		try {
+			// 刷新任务数据
+			await taskStore.fetchTasks()
+			// 刷新人员数据
+			await fetchPersonTaskStats()
+			await fetchPersonTaskDetails(selectedPerson.value)
+			// 刷新其他数据
+			await fetchDefectDiscoveryStats()
+			await fetchMonthlyTaskCount()
+			await fetchDailyTaskStats()
+		} catch (e) {
+			console.error('数据刷新失败', e)
+		}
+	}
 
 	// 获取缺陷发现率数据的方法
 	const fetchDefectDiscoveryStats = async () => {
@@ -600,42 +648,42 @@
 		const option : echarts.EChartsOption = {
 			tooltip: {
 				trigger: 'axis',
-				backgroundColor: 'rgba(0, 0, 0, 0.7)', // 修改提示框背景颜色
+				backgroundColor: 'rgba(0, 0, 0, 0.7)',
 				textStyle: {
-					color: '#fff' // 修改提示框文字颜色
+					color: '#fff'
 				}
 			},
 			xAxis: {
 				type: 'category',
 				data: xData,
 				axisLabel: {
-					color: '#fff', // 修改 x 轴标签颜色为白色
-					rotate: 45, // 旋转 x 轴标签
-					fontSize: 14 // 增大 x 轴标签字体大小
+					color: '#fff',
+					rotate: 45,
+					fontSize: 14
 				},
 				axisLine: {
 					lineStyle: {
-						color: '#999' // 修改 x 轴轴线颜色
+						color: '#999'
 					}
 				},
 				splitLine: {
-					show: false // 隐藏 x 轴分割线
+					show: false
 				}
 			},
 			yAxis: {
 				type: 'value',
 				axisLabel: {
-					color: '#fff', // 修改 y 轴标签颜色为白色
-					fontSize: 14 // 增大 y 轴标签字体大小
+					color: '#fff',
+					fontSize: 14
 				},
 				axisLine: {
 					lineStyle: {
-						color: '#999' // 修改 y 轴轴线颜色
+						color: '#999'
 					}
 				},
 				splitLine: {
 					lineStyle: {
-						color: '#eee' // 修改 y 轴分割线颜色
+						color: '#eee'
 					}
 				}
 			},
@@ -645,15 +693,16 @@
 					type: 'line',
 					smooth: true,
 					itemStyle: {
-						color: '#007BFF' // 修改数据点颜色
+						color: '#007BFF'
 					},
 					lineStyle: {
-						color: '#007BFF', // 修改线条颜色
-						width: 2 // 修改线条宽度
+						color: '#007BFF',
+						width: 2
 					},
 					areaStyle: {
-						color: 'rgba(0, 123, 255, 0.1)' // 添加区域填充颜色
-					}
+						color: 'rgba(0, 123, 255, 0.1)'
+					},
+					cursor: 'pointer'
 				}
 			],
 			grid: {
@@ -669,8 +718,20 @@
 
 		// 添加点击事件
 		chart.on('click', (params : echarts.ECElementEvent) => {
-			const month = monthlyTaskData.value[params.dataIndex].month;
-			if (month) {
+			if (params.componentType === 'xAxis' || params.componentType === 'yAxis' || params.componentType === 'grid') {
+				const pointInPixel = [params.offsetX, params.offsetY];
+				const pointInGrid = chart.convertFromPixel({ seriesIndex: 0 }, pointInPixel);
+				const xIndex = Math.round(pointInGrid[0]);
+				if (xIndex >= 0 && xIndex < monthlyTaskData.value.length) {
+					const month = monthlyTaskData.value[xIndex].month;
+					selectedMonthlyTaskMonth.value = month;
+					(async () => {
+						await fetchMonthlyTaskDetails(month);
+						monthlyTaskModalVisible.value = true;
+					})();
+				}
+			} else if (params.componentType === 'series') {
+				const month = monthlyTaskData.value[params.dataIndex].month;
 				selectedMonthlyTaskMonth.value = month;
 				(async () => {
 					await fetchMonthlyTaskDetails(month);
@@ -724,9 +785,9 @@
 
 	// 添加格式化距离的方法
 	const formatDistance = (distance : number | undefined) => {
-		if (distance === undefined || distance === null) return '0.0'
-		return distance.toFixed(1)
-	}
+		if (distance === undefined || distance === null) return '0.0';
+		return distance.toFixed(1);
+	};
 
 	// 缺陷统计
 	const defectStats = ref({
@@ -1167,22 +1228,34 @@
 					color: '#00a8e8',
 					borderColor: '#fff',
 					borderWidth: 1
-				}
+				},
+				cursor: 'pointer'
 			}],
 			color: ['#00a8e8']
 		};
 
 		chart.setOption(option);
 
-		// 修点击事件处理 - 更可靠的实现
-		chart.off('click'); // 先移除旧的事件
+		// 点击事件处理
+		chart.off('click');
 		chart.on('click', (params) => {
-			if (params.componentType === 'series') {
+			if (params.componentType === 'xAxis' || params.componentType === 'yAxis' || params.componentType === 'grid') {
+				const pointInPixel = [params.offsetX, params.offsetY];
+				const pointInGrid = chart.convertFromPixel({ seriesIndex: 0 }, pointInPixel);
+				const xIndex = Math.round(pointInGrid[0]);
+				if (xIndex >= 0 && xIndex < monthlyDefectStats.value.length) {
+					const month = monthlyDefectStats.value[xIndex].month;
+					selectedMonth.value = month;
+					fetchMonthlyDetails(month).then(() => {
+						monthlyModalVisible.value = true;
+					}).catch(error => {
+						console.error('获取详情失败:', error);
+					});
+				}
+			} else if (params.componentType === 'series') {
 				const month = monthlyDefectStats.value[params.dataIndex].month;
-				console.log('点击月份:', month); // 调试日志
 				selectedMonth.value = month;
 				fetchMonthlyDetails(month).then(() => {
-					console.log('获取到的数据:', monthlyDefects.value); // 调试日志
 					monthlyModalVisible.value = true;
 				}).catch(error => {
 					console.error('获取详情失败:', error);
@@ -1202,12 +1275,9 @@
 	// 获取月度缺陷详情方法
 	const fetchMonthlyDetails = async (month : string) => {
 		try {
-			console.log(`正在获取 ${month} 的数据...`); // 调试日志
 			const res = await axios.get(`${API_URL}/monthly-details`, {
 				params: { month, pageSize: 1000 }
 			});
-
-			console.log('接口响应数据:', res.data); // 调试日志
 
 			if (res.data) {
 				monthlyStats.value = {
@@ -1220,7 +1290,6 @@
 				};
 
 				monthlyDefects.value = res.data.defects || [];
-				console.log('处理后的数据:', monthlyDefects.value); // 调试日志
 			}
 		} catch (e) {
 			console.error('获取月度缺陷详情失败', e);
@@ -1250,10 +1319,17 @@
 				fetchDailyTaskStats(),
 				fetchMonthlyTaskCount(),
 				fetchPersonTaskStats(),
-				fetchDefectDiscoveryStats()
+				fetchDefectDiscoveryStats(),
+				startCountdown()
 			])
 		} catch (error) {
 			console.error('初始化数据失败:', error)
+		}
+	})
+
+	onUnmounted(() => {
+		if (refreshInterval) {
+			clearInterval(refreshInterval as any) // 清除定时器时需要进行类型断言
 		}
 	})
 </script>
@@ -1707,5 +1783,40 @@
 		/* 适当缩小标签字体大小 */
 		color: #00a8e8;
 		/* 设置文字颜色为蓝色 */
+	}
+
+	.refresh-countdown {
+		position: fixed;
+		bottom: 10px;
+		right: 10px;
+		font-size: 12px;
+		color: #666;
+	}
+
+	.dropdown-menu {
+		position: absolute;
+		top: 40px;
+		/* 根据实际情况调整 */
+		right: 10px;
+		/* 根据实际情况调整 */
+		background: rgba(0, 168, 232, 0.1);
+		/* 蓝色科技风背景 */
+		border: 1px solid #00a8e8;
+		/* 蓝色边框 */
+		border-radius: 4px;
+		box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+		z-index: 10;
+	}
+
+	.dropdown-item {
+		padding: 10px 20px;
+		cursor: pointer;
+		color: #ffffff;
+		/* 蓝色文字 */
+	}
+
+	.dropdown-item:hover {
+		background: rgba(0, 168, 232, 0.3);
+		/* 鼠标悬停背景色 */
 	}
 </style>

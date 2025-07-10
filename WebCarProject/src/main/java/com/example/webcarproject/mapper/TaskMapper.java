@@ -146,7 +146,7 @@ public interface TaskMapper {
     // 获取指定人员的任务详细信息
     @Select("SELECT * FROM task WHERE executor = #{executor}")
     List<Task> getPersonTaskDetail(@Param("executor") String executor);
-    
+
     // 获取巡检中有问题的任务
     @Select("SELECT * FROM task WHERE issues_found > 0")
     List<Task> getInspectionsWithDefects();
