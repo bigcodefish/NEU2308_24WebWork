@@ -60,6 +60,8 @@ import UserManagementView from './UserManagementView.vue';
 import RoleManagementView from './RoleManagementView.vue';
 import DeptManagementView from './DeptManagementView.vue';
 import ConfigManagementView from './ConfigManagementView.vue';
+import MenuManagementView from './MenuManagementView.vue';
+
 
 const activeTab = ref('user');
 
