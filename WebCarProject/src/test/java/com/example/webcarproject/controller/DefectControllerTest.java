@@ -1,6 +1,7 @@
 package com.example.webcarproject.controller;
 
 import com.example.webcarproject.entity.Defect;
+import com.example.webcarproject.entity.DefectStats;
 import com.example.webcarproject.mapper.DefectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -230,5 +231,174 @@ class DefectControllerTest {
 
         String result = defectController.delete(1L);
         assertEquals("删除失败", result);
+    }
+
+
+
+    @Test
+    void getDefectStats_Success() {
+        DefectStats mockStats = new DefectStats();
+        mockStats.setTotalDefects(10);
+        mockStats.setConfirmedDefects(7);
+        mockStats.setFalseDefects(3);
+
+        when(defectMapper.getDefectStats()).thenReturn(mockStats);
+
+        DefectStats result = defectController.getDefectStats();
+
+        assertNotNull(result);
+        assertEquals(10, result.getTotalDefects());
+        assertEquals(7, result.getConfirmedDefects());
+        assertEquals(3, result.getFalseDefects());
+        verify(defectMapper, times(1)).getDefectStats();
+    }
+
+    @Test
+    void getDefectStats_Empty() {
+        when(defectMapper.getDefectStats()).thenReturn(null);
+
+        DefectStats result = defectController.getDefectStats();
+
+        assertNull(result);
+        verify(defectMapper, times(1)).getDefectStats();
+    }
+
+    @Test
+    void getDefectTypeStats_Success() {
+        List<Map<String, Object>> mockList = new ArrayList<>();
+        Map<String, Object> type1 = new HashMap<>();
+        type1.put("defectType", "裂缝");
+        type1.put("count", 5);
+        mockList.add(type1);
+
+        when(defectMapper.getDefectTypeStats()).thenReturn(mockList);
+
+        List<Map<String, Object>> result = defectController.getDefectTypeStats();
+
+        assertNotNull(result);
+        assertEquals(1, result.size());
+        assertEquals("裂缝", result.get(0).get("defectType"));
+        assertEquals(5, result.get(0).get("count"));
+        verify(defectMapper, times(1)).getDefectTypeStats();
+    }
+
+    @Test
+    void getDefectTypeStats_Empty() {
+        when(defectMapper.getDefectTypeStats()).thenReturn(Collections.emptyList());
+
+        List<Map<String, Object>> result = defectController.getDefectTypeStats();
+
+        assertNotNull(result);
+        assertTrue(result.isEmpty());
+        verify(defectMapper, times(1)).getDefectTypeStats();
+    }
+
+    @Test
+    void getDefectTypeDetails_Success() {
+        Map<String, Object> mockDetails = new HashMap<>();
+        mockDetails.put("total", 10);
+        mockDetails.put("confirmed", 7);
+        mockDetails.put("falseDefects", 3);
+        mockDetails.put("highSeverity", 2);
+        mockDetails.put("mediumSeverity", 3);
+        mockDetails.put("lowSeverity", 2);
+
+        when(defectMapper.getDefectTypeDetails("裂缝")).thenReturn(mockDetails);
+
+        Map<String, Object> result = defectController.getDefectTypeDetails("裂缝");
+
+        assertNotNull(result);
+        assertEquals(10, result.get("total"));
+        assertEquals(7, result.get("confirmed"));
+        assertEquals(3, result.get("falseDefects"));
+        verify(defectMapper, times(1)).getDefectTypeDetails("裂缝");
+    }
+
+    @Test
+    void getDefectTypeDetails_NotFound() {
+        when(defectMapper.getDefectTypeDetails("不存在的类型")).thenReturn(null);
+
+        Map<String, Object> result = defectController.getDefectTypeDetails("不存在的类型");
+
+        assertNull(result);
+        verify(defectMapper, times(1)).getDefectTypeDetails("不存在的类型");
+    }
+
+    @Test
+    void getMonthlyDefectStats_Success() {
+        List<Map<String, Object>> mockList = new ArrayList<>();
+        Map<String, Object> month1 = new HashMap<>();
+        month1.put("month", "2023-01");
+        month1.put("count", 10);
+        mockList.add(month1);
+
+        when(defectMapper.getMonthlyStats()).thenReturn(mockList);
+
+        List<Map<String, Object>> result = defectController.getMonthlyDefectStats();
+
+        assertNotNull(result);
+        assertEquals(1, result.size());
+        assertEquals("2023-01", result.get(0).get("month"));
+        assertEquals(10, result.get(0).get("count"));
+        verify(defectMapper, times(1)).getMonthlyStats();
+    }
+
+    @Test
+    void getMonthlyDefectStats_Empty() {
+        when(defectMapper.getMonthlyStats()).thenReturn(Collections.emptyList());
+
+        List<Map<String, Object>> result = defectController.getMonthlyDefectStats();
+
+        assertNotNull(result);
+        assertTrue(result.isEmpty());
+        verify(defectMapper, times(1)).getMonthlyStats();
+    }
+
+    @Test
+    void getMonthlyDefectDetails_Success() {
+        // 准备模拟数据
+        List<Defect> mockDefects = Arrays.asList(new Defect(), new Defect());
+        DefectStats mockStats = new DefectStats();
+        mockStats.setTotalDefects(2);
+        mockStats.setConfirmedDefects(1);
+        mockStats.setFalseDefects(1);
+
+        when(defectMapper.getMonthlyDefectDetails("2023-01", 1000)).thenReturn(mockDefects);
+        when(defectMapper.getMonthlyDefectStats("2023-01")).thenReturn(mockStats);
+
+        Map<String, Object> result = defectController.getMonthlyDefectDetails("2023-01", 1000);
+
+        assertNotNull(result);
+        assertEquals(2, ((List<?>)result.get("defects")).size());
+        assertEquals(2, ((DefectStats)result.get("stats")).getTotalDefects());
+        verify(defectMapper, times(1)).getMonthlyDefectDetails("2023-01", 1000);
+        verify(defectMapper, times(1)).getMonthlyDefectStats("2023-01");
+    }
+
+    @Test
+    void getMonthlyDefectDetails_Empty() {
+        when(defectMapper.getMonthlyDefectDetails("2023-02", 1000)).thenReturn(Collections.emptyList());
+        when(defectMapper.getMonthlyDefectStats("2023-02")).thenReturn(new DefectStats());
+
+        Map<String, Object> result = defectController.getMonthlyDefectDetails("2023-02", 1000);
+
+        assertNotNull(result);
+        assertTrue(((List<?>)result.get("defects")).isEmpty());
+        verify(defectMapper, times(1)).getMonthlyDefectDetails("2023-02", 1000);
+        verify(defectMapper, times(1)).getMonthlyDefectStats("2023-02");
+    }
+
+    @Test
+    void getMonthlyDefectDetails_InvalidPageSize() {
+        // 测试边界条件 - 0或负数的pageSize
+        List<Defect> mockDefects = Collections.singletonList(new Defect());
+        when(defectMapper.getMonthlyDefectDetails("2023-01", 0)).thenReturn(mockDefects);
+        when(defectMapper.getMonthlyDefectStats("2023-01")).thenReturn(new DefectStats());
+
+        Map<String, Object> result = defectController.getMonthlyDefectDetails("2023-01", 0);
+
+        assertNotNull(result);
+        assertEquals(1, ((List<?>)result.get("defects")).size());
+        verify(defectMapper, times(1)).getMonthlyDefectDetails("2023-01", 0);
     }
 }
