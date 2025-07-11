@@ -78,4 +78,25 @@ public interface DepartmentMapper {
 
     @Select("SELECT id FROM user_info WHERE department_id = #{deptId}")
     List<Long> selectUserIdsByDeptId(Long deptId);
+
+    @Select("SELECT id, name, code, parent_id, leader, phone, email, order_num, status, create_time FROM department_info")
+    List<Department> selectAllDepts();
+
+    // 查询部门及其所有子部门ID
+    @Select("WITH RECURSIVE dept_tree AS (" +
+            "  SELECT id FROM department_info WHERE id = #{deptId} " +
+            "  UNION ALL " +
+            "  SELECT d.id FROM department_info d " +
+            "  JOIN dept_tree t ON d.parent_id = t.id " +
+            ") SELECT id FROM dept_tree")
+    List<Long> selectDeptAndChildrenIds(@Param("deptId") Long deptId);
+
+    // 批量删除部门
+    @Delete("<script>" +
+            "DELETE FROM department_info WHERE id IN " +
+            "<foreach collection='ids' item='id' open='(' separator=',' close=')'>" +
+            "#{id}" +
+            "</foreach>" +
+            "</script>")
+    int batchDeleteDepts(@Param("ids") List<Long> ids);
 }

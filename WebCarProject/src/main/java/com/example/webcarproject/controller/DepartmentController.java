@@ -5,8 +5,7 @@ import com.example.webcarproject.mapper.DepartmentMapper;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Date;
-import java.util.List;
+import java.util.*;
 
 @CrossOrigin(origins = "*")
 @RestController
@@ -31,7 +30,11 @@ public class DepartmentController {
 
     @GetMapping("/tree")
     public List<Department> getTree() {
-        return departmentMapper.selectTree();
+        // 获取所有部门数据
+        List<Department> allDepts = departmentMapper.selectAllDepts();
+
+        // 构建树形结构
+        return buildDeptTree(allDepts);
     }
 
     @GetMapping("/{id}")
@@ -41,8 +44,8 @@ public class DepartmentController {
 
     @PostMapping
     public String add(@RequestBody Department department) {
+        // 不再设置默认status，直接使用前端传递的值
         department.setCreateTime(new Date());
-        department.setStatus("0"); // 默认状态为正常
         int result = departmentMapper.insert(department);
         return result > 0 ? "添加成功" : "添加失败";
     }
@@ -63,22 +66,60 @@ public class DepartmentController {
 
     @DeleteMapping("/{id}")
     public String delete(@PathVariable Long id) {
+        // 检查是否有用户关联
         int userCount = departmentMapper.countUsersByDeptId(id);
         if (userCount > 0) {
             return "删除失败，该部门下有关联用户";
         }
 
-        int childCount = departmentMapper.countChildren(id);
-        if (childCount > 0) {
-            return "删除失败，该部门下有子部门";
-        }
+        // 递归删除子部门
+        deleteDepartmentAndChildren(id);
 
-        int result = departmentMapper.deleteById(id);
-        return result > 0 ? "删除成功" : "删除失败";
+        return "删除成功";
     }
 
     @GetMapping("/{id}/users")
     public List<Long> getUsersByDeptId(@PathVariable Long id) {
         return departmentMapper.selectUserIdsByDeptId(id);
+    }
+
+    // 构建树形结构的方法
+    private List<Department> buildDeptTree(List<Department> allDepts) {
+        // 创建ID到部门的映射
+        Map<Long, Department> deptMap = new HashMap<>();
+        allDepts.forEach(dept -> {
+            dept.setChildren(new ArrayList<>()); // 初始化children为空列表
+            deptMap.put(dept.getId(), dept);
+        });
+
+        // 构建树
+        List<Department> tree = new ArrayList<>();
+        for (Department dept : allDepts) {
+            if (dept.getParentId() == null) {
+                tree.add(dept);  // 添加根节点
+            } else {
+                Department parent = deptMap.get(dept.getParentId());
+                if (parent != null) {
+                    parent.getChildren().add(dept);  // 添加子节点
+                }
+            }
+        }
+        return tree;
+    }
+
+    private void deleteDepartmentAndChildren(Long deptId) {
+        // 获取所有子部门ID
+        List<Department> children = departmentMapper.selectChildren(deptId);
+
+        // 递归删除子部门
+        for (Department child : children) {
+            // 检查子部门是否有用户
+            if (departmentMapper.countUsersByDeptId(child.getId()) == 0) {
+                deleteDepartmentAndChildren(child.getId());
+            }
+        }
+
+        // 删除当前部门
+        departmentMapper.deleteById(deptId);
     }
 }
