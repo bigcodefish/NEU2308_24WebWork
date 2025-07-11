@@ -91,16 +91,16 @@ public class TaskController {
 
     @GetMapping("/tasks/stats")
     public Map<String, Object> getTaskStats() {
+        List<Task> allTasks = taskMapper.findAllTasks();
+
         // 获取巡视总次数
-        int totalTasks = taskMapper.findAllTasks().size();
+        int totalTasks = allTasks.size();
 
         // 获取巡视总距离
-        double totalDistance = taskMapper.findAllTasks().stream()
+        double totalDistance = allTasks.stream()
                 .filter(task -> task.getInspectionDistance() != null)
                 .mapToDouble(Task::getInspectionDistance)
                 .sum();
-
-        //System.out.println("后端统计结果 - 总次数: " + totalTasks + ", 总距离: " + totalDistance);
 
         return Map.of(
                 "totalTasks", totalTasks,
