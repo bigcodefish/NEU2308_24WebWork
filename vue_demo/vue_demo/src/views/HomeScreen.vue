@@ -47,12 +47,12 @@
 					</div>
 
 					<div class="card" style="min-height: 300px;">
-						<div class="card-title">缺陷类型统计 (共 {{ defectTypeCount }} 种)</div>
+						<div class="card-title" @click="navigateTo('/defect')">缺陷类型统计 (共 {{ defectTypeCount }} 种)</div>
 						<div class="chart-area" ref="pieChart" style="height: 100%; min-height: 250px;"></div>
 					</div>
 
 					<div class="card">
-						<div class="card-title">人员数据统计</div>
+						<div class="card-title" @click="navigateTo('/system')">人员数据统计</div>
 						<div class="chart-area" ref="personTaskChart" style="height: 100%; min-height: 250px;">
 						</div>
 					</div>
@@ -83,6 +83,9 @@
 							<div>图层2: 地铁图</div>
 							<div>图层3: 地图背景</div>
 						</div>
+						<div class="map-layer layer1"></div>
+						<div class="map-layer layer2"></div>
+						<div class="map-layer layer3"></div>
 						地图可视化区域<br>
 						(地铁路线、巡视轨迹、实时位置)
 					</div>
@@ -121,13 +124,13 @@
 					</div>
 
 					<div class="card">
-						<div class="card-title">每月巡检次数</div>
+						<div class="card-title" @click="navigateTo('/task')">每月巡检次数</div>
 						<div class="chart-area" ref="monthlyTaskChart" style="height: 100%; min-height: 200px;">
 						</div>
 					</div>
 
 					<div class="card">
-						<div class="card-title">缺陷数据变化</div>
+						<div class="card-title" @click="navigateTo('/defect')">缺陷数据变化</div>
 						<div class="chart-area" ref="lineChart" style="height: 100%; min-height: 200px;"></div>
 					</div>
 				</div>
@@ -930,7 +933,7 @@
 				top: 'center',
 				textStyle: {
 					color: '#fff',
-					fontSize: 14 // 增大图例文字大小
+					fontSize: 14
 				},
 				itemWidth: 14,
 				itemHeight: 14,
@@ -955,7 +958,7 @@
 						shadowColor: 'rgba(0, 0, 0, 0.5)'
 					},
 					label: {
-						show: true,
+						show: false,
 						formatter: '{b}: {d}%',
 						position: 'outside',
 						alignTo: 'edge',
@@ -964,7 +967,7 @@
 						fontSize: 12
 					},
 					labelLine: {
-						show: false // 移除标签线
+						show: false
 					},
 					emphasis: {
 						scale: true,
@@ -1795,17 +1798,31 @@
 
 	.dropdown-menu {
 		position: absolute;
-		top: 40px;
-		/* 根据实际情况调整 */
+		top: 100%;
 		right: 10px;
-		/* 根据实际情况调整 */
 		background: rgba(0, 168, 232, 0.1);
-		/* 蓝色科技风背景 */
 		border: 1px solid #00a8e8;
-		/* 蓝色边框 */
 		border-radius: 4px;
 		box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 		z-index: 10;
+		overflow: hidden
+	}
+
+	.dropdown-menu.animated {
+		display: block;
+		animation: slideDown 0.3s ease-out;
+	}
+
+	@keyframes slideDown {
+		from {
+			height: 0;
+			opacity: 0;
+		}
+
+		to {
+			height: auto;
+			opacity: 1;
+		}
 	}
 
 	.dropdown-item {
@@ -1818,5 +1835,42 @@
 	.dropdown-item:hover {
 		background: rgba(0, 168, 232, 0.3);
 		/* 鼠标悬停背景色 */
+	}
+
+	.map-layer {
+		width: 100%;
+		height: 100%;
+		position: absolute;
+		top: 0;
+		left: 0;
+		background-size: contain;
+		/* 使图片完整显示在容器内 */
+		background-position: center;
+		/* 图片居中显示 */
+		background-repeat: no-repeat;
+		/* 不重复显示图片 */
+	}
+
+	.layer1 {
+		background-image: url('../components/icons/1.png');
+		background-size: cover;
+		z-index: 1;
+	}
+
+	.layer2 {
+		background-image: url('../components/icons/2.jpg');
+		background-size: cover;
+		z-index: 2;
+	}
+
+	.layer3 {
+		background-image: url('../components/icons/2.1.jpg');
+		background-size: cover;
+		z-index: 3;
+	}
+
+	.earth-section {
+		position: relative;
+		height: 300px;
 	}
 </style>
