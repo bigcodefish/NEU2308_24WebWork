@@ -16,6 +16,7 @@ public class Department {
     private String email;           // 邮箱地址
     private Integer orderNum;       // 显示顺序
     private String status;          // 状态：0-正常，1-停用
+    private Integer userCount;      // 部门人数
     private Date createTime;        // 创建时间
     // 移除了updateTime字段
     private List<Department> children; // 子部门列表

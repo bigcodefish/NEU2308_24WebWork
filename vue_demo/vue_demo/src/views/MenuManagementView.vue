@@ -1,949 +1,354 @@
 <template>
-  <div class="menu-management">
-    <div class="search-form">
-      <div class="form-item">
-        <label>菜单名称</label>
-        <input v-model="searchParams.menuName" type="text" placeholder="请输入菜单名称">
-      </div>
-      <div class="form-item">
-        <label>状态</label>
-        <select v-model="searchParams.status">
-          <option value="">全部</option>
-          <option value="0">正常</option>
-          <option value="1">停用</option>
-        </select>
-      </div>
-      <div class="form-item">
-        <label>显示状态</label>
-        <select v-model="searchParams.visible">
-          <option value="">全部</option>
-          <option value="0">显示</option>
-          <option value="1">隐藏</option>
-        </select>
-      </div>
-      <div class="search-buttons">
-        <button class="btn btn-primary" @click="search" :disabled="loading">
-          搜索
-        </button>
-        <button class="btn" @click="reset" :disabled="loading">重置</button>
-        <button class="btn" @click="toggleExpand">{{ isExpanded ? '折叠' : '展开' }}</button>
-      </div>
-    </div>
-    
-    <div class="toolbar">
-      <div class="btn-group">
-        <button class="btn btn-primary" @click="addMenu">新增</button>
-        <button class="btn btn-success" @click="batchEdit" :disabled="!selectedMenus.length">批量修改</button>
-        <button class="btn btn-danger" @click="batchDelete" :disabled="!selectedMenus.length">批量删除</button>
-        <button class="btn" @click="refresh" :disabled="loading">刷新</button>
-      </div>
-    </div>
-    
-    <!-- 新增/编辑菜单对话框 -->
-    <div v-if="showDialog" class="dialog-overlay">
-      <div class="dialog">
-        <div class="dialog-header">
-          <h3>{{ dialogTitle }}</h3>
-          <button class="close-btn" @click="closeDialog">×</button>
-        </div>
-        <div class="dialog-body">
-          <form @submit.prevent="submitForm">
-            <div class="form-group">
-              <label>上级菜单</label>
-              <TreeSelect 
+  <div class="app-container">
+    <!-- 搜索/操作区域 -->
+    <el-form :model="queryParams" ref="queryForm" :inline="true" v-show="showSearch">
+      <el-form-item label="菜单名称" prop="menuName">
+        <el-input
+          v-model="queryParams.menuName"
+          placeholder="请输入菜单名称"
+          clearable
+          @keyup.enter.native="handleQuery"
+        />
+      </el-form-item>
+      <el-form-item label="状态" prop="status">
+        <el-select v-model="queryParams.status" placeholder="菜单状态" clearable>
+          <el-option label="正常" value="0" />
+          <el-option label="停用" value="1" />
+        </el-select>
+      </el-form-item>
+      <el-form-item>
+        <el-button type="primary" icon="Search" @click="handleQuery">搜索</el-button>
+        <el-button icon="Refresh" @click="resetQuery">重置</el-button>
+      </el-form-item>
+    </el-form>
+
+    <el-row :gutter="10" class="mb8">
+      <el-col :span="1.5">
+        <el-button
+          type="primary"
+          plain
+          icon="Plus"
+          @click="handleAdd"
+        >新增</el-button>
+      </el-col>
+      <el-col :span="1.5">
+        <el-button
+          type="info"
+          plain
+          icon="Sort"
+          @click="toggleExpandAll"
+        >展开/折叠</el-button>
+      </el-col>
+    </el-row>
+
+    <!-- 表格数据 -->
+    <el-table
+      v-if="refreshTable"
+      :data="menuList"
+      row-key="menuId"
+      :default-expand-all="isExpandAll"
+      :tree-props="{ children: 'children', hasChildren: 'hasChildren' }"
+    >
+      <el-table-column prop="menuName" label="菜单名称" :show-overflow-tooltip="true" width="200"></el-table-column>
+      <el-table-column prop="icon" label="图标" align="center" width="100">
+        <template #default="scope">
+          <component :is="scope.row.icon" />
+        </template>
+      </el-table-column>
+      <el-table-column prop="orderNum" label="排序" width="60"></el-table-column>
+      <el-table-column prop="perms" label="权限标识" :show-overflow-tooltip="true"></el-table-column>
+      <el-table-column prop="component" label="组件路径" :show-overflow-tooltip="true"></el-table-column>
+      <el-table-column prop="status" label="状态" width="80">
+         <template #default="scope">
+          <el-tag :type="scope.row.status === '0' ? 'success' : 'danger'">
+            {{ scope.row.status === '0' ? '正常' : '停用' }}
+          </el-tag>
+        </template>
+      </el-table-column>
+      <el-table-column label="创建时间" align="center" prop="createTime">
+        <template #default="scope">
+          <span>{{ new Date(scope.row.createTime).toLocaleString() }}</span>
+        </template>
+      </el-table-column>
+      <el-table-column label="操作" align="center" width="200" class-name="small-padding fixed-width">
+        <template #default="scope">
+          <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)">修改</el-button>
+          <el-button link type="primary" icon="Plus" @click="handleAdd(scope.row)">新增</el-button>
+          <el-button link type="primary" icon="Delete" @click="handleDelete(scope.row)">删除</el-button>
+        </template>
+      </el-table-column>
+    </el-table>
+
+    <!-- 添加或修改菜单对话框 -->
+    <el-dialog :title="title" v-model="open" width="680px" append-to-body>
+      <el-form ref="menuRef" :model="form" :rules="rules" label-width="100px">
+        <el-row>
+          <el-col :span="24">
+            <el-form-item label="上级菜单">
+              <el-tree-select
                 v-model="form.parentId"
-                :options="menuTreeOptions"
+                :data="menuOptions"
+                :props="{ value: 'menuId', label: 'menuName', children: 'children' }"
+                value-key="menuId"
                 placeholder="选择上级菜单"
-                :disabled="isEditMode && form.menuType === 'M'"
+                check-strictly
               />
-            </div>
-            <div class="form-group">
-              <label>菜单名称 <span class="required">*</span></label>
-              <input v-model="form.menuName" type="text" required>
-            </div>
-            <div class="form-group">
-              <label>菜单类型 <span class="required">*</span></label>
-              <select v-model="form.menuType" @change="onMenuTypeChange" required>
-                <option value="M">目录</option>
-                <option value="C">菜单</option>
-                <option value="F">按钮</option>
-              </select>
-            </div>
-            <div class="form-group" v-if="form.menuType !== 'F'">
-              <label>路由地址</label>
-              <input v-model="form.path" type="text">
-            </div>
-            <div class="form-group" v-if="form.menuType === 'C'">
-              <label>组件路径</label>
-              <input v-model="form.component" type="text">
-            </div>
-            <div class="form-group">
-              <label>显示顺序</label>
-              <input v-model="form.orderNum" type="number" min="0">
-            </div>
-            <div class="form-group">
-              <label>状态</label>
-              <select v-model="form.status">
-                <option value="0">正常</option>
-                <option value="1">停用</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label>显示状态</label>
-              <select v-model="form.visible">
-                <option value="0">显示</option>
-                <option value="1">隐藏</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label>图标</label>
-              <div class="icon-selector">
-                <input v-model="form.icon" type="text" placeholder="选择图标">
-                <button type="button" class="btn-icon" @click="showIconPicker = true">
-                  <span v-if="form.icon">{{ form.icon }}</span>
-                  <span v-else>选择图标</span>
-                </button>
-              </div>
-            </div>
-            <div class="form-group" v-if="form.menuType !== 'M'">
-              <label>权限标识</label>
-              <input v-model="form.perms" type="text">
-            </div>
-            <div class="form-group">
-              <label>备注</label>
-              <textarea v-model="form.remark" rows="3"></textarea>
-            </div>
-            <div class="form-actions">
-              <button type="button" class="btn" @click="closeDialog">取消</button>
-              <button type="submit" class="btn btn-primary" :disabled="loading">保存</button>
-            </div>
-          </form>
+            </el-form-item>
+          </el-col>
+          <el-col :span="24">
+            <el-form-item label="菜单类型" prop="menuType">
+              <el-radio-group v-model="form.menuType">
+                <el-radio label="M">目录</el-radio>
+                <el-radio label="C">菜单</el-radio>
+                <el-radio label="F">按钮</el-radio>
+              </el-radio-group>
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="菜单名称" prop="menuName">
+              <el-input v-model="form.menuName" placeholder="请输入菜单名称" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="显示排序" prop="orderNum">
+              <el-input-number v-model="form.orderNum" controls-position="right" :min="0" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12" v-if="form.menuType !== 'F'">
+            <el-form-item label="路由地址" prop="path">
+              <el-input v-model="form.path" placeholder="请输入路由地址" />
+            </el-form-item>
+          </el-col>
+           <el-col :span="12" v-if="form.menuType === 'C'">
+            <el-form-item label="组件路径" prop="component">
+              <el-input v-model="form.component" placeholder="请输入组件路径" />
+            </el-form-item>
+          </el-col>
+          <el-col :span-="12" v-if="form.menuType !== 'M'">
+            <el-form-item label="权限标识" prop="perms">
+              <el-input v-model="form.perms" placeholder="请输入权限标识" />
+            </el-form-item>
+          </el-col>
+           <el-col :span="12" v-if="form.menuType !== 'F'">
+            <el-form-item label="显示状态">
+              <el-radio-group v-model="form.visible">
+                 <el-radio label="0">显示</el-radio>
+                 <el-radio label="1">隐藏</el-radio>
+              </el-radio-group>
+            </el-form-item>
+          </el-col>
+          <el-col :span="12" v-if="form.menuType !== 'F'">
+             <el-form-item label="菜单状态">
+              <el-radio-group v-model="form.status">
+                <el-radio label="0">正常</el-radio>
+                <el-radio label="1">停用</el-radio>
+              </el-radio-group>
+            </el-form-item>
+          </el-col>
+        </el-row>
+      </el-form>
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button type="primary" @click="submitForm">确 定</el-button>
+          <el-button @click="cancel">取 消</el-button>
         </div>
-      </div>
-    </div>
-
-    <!-- 图标选择器 -->
-    <IconPicker 
-      v-if="showIconPicker"
-      @select="handleIconSelect"
-      @close="showIconPicker = false"
-    />
-
-    <div class="tree-view">
-      <div v-if="loading" class="loading">加载中...</div>
-      <div 
-        v-for="menu in menus" 
-        :key="menu.menuId"
-        class="tree-node"
-        :class="{ 
-          parent: !menu.parentId, 
-          child: menu.parentId,
-          'd-none': !isExpanded && menu.parentId,
-          selected: selectedMenus.includes(menu.menuId)
-        }"
-        @click="toggleSelect(menu.menuId)"
-      >
-        <span class="menu-content">
-          <input 
-            type="checkbox" 
-            :checked="selectedMenus.includes(menu.menuId)"
-            @click.stop="toggleSelect(menu.menuId)"
-          >
-          <span class="menu-icon">{{ getMenuTypeIcon(menu.menuType) }} {{ menu.icon || '' }}</span>
-          {{ menu.menuName }}
-          <span class="menu-info">
-            <span class="status-tag" :class="menu.status === '0' ? 'status-normal' : 'status-disabled'">
-              {{ getStatusText(menu.status) }}
-            </span>
-            <span class="visible-tag" :class="menu.visible === '0' ? 'visible-show' : 'visible-hide'">
-              {{ getVisibleText(menu.visible) }}
-            </span>
-            <span class="menu-type-tag">
-              {{ getMenuTypeText(menu.menuType) }}
-            </span>
-          </span>
-        </span>
-        <span class="menu-actions">
-          <button class="link" @click.stop="editMenu(menu.menuId)">修改</button>
-          <button class="link" @click.stop="addSubMenu(menu.menuId)" v-if="menu.menuType === 'M'">新增</button>
-          <button class="link" @click.stop="deleteMenu(menu.menuId)">删除</button>
-        </span>
-      </div>
-      <div v-if="menus.length === 0 && !loading" class="empty">
-        暂无菜单数据
-      </div>
-    </div>
-    
-    <!-- 批量操作对话框 -->
-    <div v-if="showBatchDialog" class="dialog-overlay">
-      <div class="dialog">
-        <div class="dialog-header">
-          <h3>批量修改菜单</h3>
-          <button class="close-btn" @click="closeBatchDialog">×</button>
-        </div>
-        <div class="dialog-body">
-          <form @submit.prevent="submitBatchForm">
-            <div class="form-group">
-              <label>状态</label>
-              <select v-model="batchForm.status">
-                <option value="">不修改</option>
-                <option value="0">正常</option>
-                <option value="1">停用</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label>显示状态</label>
-              <select v-model="batchForm.visible">
-                <option value="">不修改</option>
-                <option value="0">显示</option>
-                <option value="1">隐藏</option>
-              </select>
-            </div>
-            <div class="form-actions">
-              <button type="button" class="btn" @click="closeBatchDialog">取消</button>
-              <button type="submit" class="btn btn-primary" :disabled="loading">保存</button>
-            </div>
-          </form>
-        </div>
-      </div>
-    </div>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
-<script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+<script setup>
+import { ref, reactive, onMounted } from 'vue';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import axios from 'axios';
 
+const API_BASE_URL = 'http://localhost:8080/api';
 
-interface Menu {
-  menuId: number;
-  menuName: string;
-  menuType: string;
-  parentId: number | null;
-  status: string;
-  visible: string;
-  path?: string;
-  component?: string;
-  icon?: string;
-  orderNum?: number;
-  perms?: string;
-  isFrame?: string;
-  remark?: string;
-  children?: Menu[];
-}
-
-const searchParams = ref({
+const showSearch = ref(true);
+const queryParams = reactive({
   menuName: '',
-  status: '',
-  visible: ''
+  status: ''
+});
+const menuList = ref([]);
+const open = ref(false);
+const title = ref("");
+const menuOptions = ref([]);
+const isExpandAll = ref(false);
+const refreshTable = ref(true);
+
+const menuRef = ref(null);
+const form = ref({});
+const rules = ref({
+  menuName: [{ required: true, message: "菜单名称不能为空", trigger: "blur" }],
+  orderNum: [{ required: true, message: "菜单顺序不能为空", trigger: "blur" }],
+  path: [{ required: true, message: "路由地址不能为空", trigger: "blur" }]
 });
 
-const showDialog = ref(false);
-const dialogTitle = ref('新增菜单');
-const isEditMode = ref(false);
-const currentMenuId = ref<number | null>(null);
-const currentParentId = ref<number | null>(null);
-const showIconPicker = ref(false);
-const showBatchDialog = ref(false);
-const selectedMenus = ref<number[]>([]);
-
-const form = ref({
-  menuName: '',
-  menuType: 'M',
-  parentId: null as number | null,
-  status: '0',
-  visible: '0',
-  path: '',
-  component: '',
-  icon: '',
-  orderNum: 0,
-  perms: '',
-  isFrame: '1',
-  remark: ''
-});
-
-const batchForm = ref({
-  status: '',
-  visible: ''
-});
-
-const menus = ref<Menu[]>([]);
-const isExpanded = ref(true);
-const loading = ref(false);
-
-// 计算属性：生成树形选择器选项
-interface TreeOption {
-  value: number;
-  label: string;
-  children: TreeOption[];
-}
-
-const menuTreeOptions = computed(() => {
-  const buildOptions = (menuList: Menu[], level = 0): TreeOption[] => {
-    return menuList.map(menu => ({
-      value: menu.menuId,
-      label: '　'.repeat(level) + (menu.menuType === 'M' ? '📁 ' : '') + menu.menuName,
-      children: menu.children ? buildOptions(menu.children, level + 1) : []
-    }));
-  };
-  
-  return [
-    { value: null, label: '顶级菜单', children: [] },
-    ...buildOptions(menus.value)
-  ];
-});
-const fetchMenus = async () => {
+/** 查询菜单列表 */
+async function getList() {
   try {
-    loading.value = true;
-    selectedMenus.value = [];
-    const response = await axios.get('/api/menu/list', {
-      params: searchParams.value
-    });
+    const response = await axios.get(`${API_BASE_URL}/menu/list`, { params: queryParams });
     if (response.data.success) {
-      menus.value = response.data.data;
+      menuList.value = response.data.data;
     } else {
-      console.error('获取菜单列表失败:', response.data.message);
+      ElMessage.error(response.data.message || '查询失败');
     }
   } catch (error) {
-    console.error('获取菜单列表出错:', error);
-  } finally {
-    loading.value = false;
+    ElMessage.error('请求菜单列表失败');
+    console.error(error);
   }
-};
+}
+
+/** 搜索按钮操作 */
+function handleQuery() {
+  getList();
+}
+
+/** 重置按钮操作 */
+function resetQuery() {
+  queryParams.menuName = '';
+  queryParams.status = '';
+  handleQuery();
+}
+
+/** 新增按钮操作 */
+async function handleAdd(row) {
+  reset();
+  await getTreeselect();
+  if (row != null && row.menuId) {
+    form.value.parentId = row.menuId;
+  } else {
+    form.value.parentId = null;
+  }
+  open.value = true;
+  title.value = "添加菜单";
+}
+
+/** 修改按钮操作 */
+async function handleUpdate(row) {
+  reset();
+  await getTreeselect();
+  try {
+    const response = await axios.get(`${API_BASE_URL}/menu/${row.menuId}`);
+    if(response.data.success){
+      form.value = response.data.data;
+      open.value = true;
+      title.value = "修改菜单";
+    } else {
+      ElMessage.error(response.data.message || '获取菜单详情失败');
+    }
+  } catch(error) {
+    ElMessage.error('请求菜单详情失败');
+  }
+}
+
+/** 删除按钮操作 */
+function handleDelete(row) {
+  ElMessageBox.confirm(`是否确认删除名称为"${row.menuName}"的数据项？`, "警告", {
+    confirmButtonText: "确定",
+    cancelButtonText: "取消",
+    type: "warning",
+  })
+  .then(() => axios.delete(`${API_BASE_URL}/menu/${row.menuId}`))
+  .then((response) => {
+    if (response.data.success) {
+      getList();
+      ElMessage.success("删除成功");
+    } else {
+      ElMessage.error(response.data.message || '删除失败');
+    }
+  })
+  .catch((error) => {
+      if(error !== 'cancel') {
+          ElMessage.error('删除请求失败');
+      }
+  });
+}
+
+/** 提交按钮 */
+function submitForm() {
+  menuRef.value.validate(async (valid) => {
+    if (valid) {
+      try {
+        let response;
+        if (form.value.menuId != null) {
+          response = await axios.put(`${API_BASE_URL}/menu`, form.value);
+        } else {
+          response = await axios.post(`${API_BASE_URL}/menu`, form.value);
+        }
+
+        if (response.data.success) {
+          ElMessage.success(response.data.message);
+          open.value = false;
+          getList();
+        } else {
+          ElMessage.error(response.data.message || '操作失败');
+        }
+      } catch (error) {
+        ElMessage.error('请求失败');
+      }
+    }
+  });
+}
+
+/** 取消按钮 */
+function cancel() {
+  open.value = false;
+  reset();
+}
+
+/** 表单重置 */
+function reset() {
+  form.value = {
+    menuId: undefined,
+    parentId: 0,
+    menuName: undefined,
+    icon: undefined,
+    menuType: "M",
+    orderNum: 0,
+    isFrame: "1",
+    visible: "0",
+    status: "0",
+  };
+   if (menuRef.value) {
+    menuRef.value.resetFields();
+  }
+}
+
+/** 查询菜单下拉树结构 */
+async function getTreeselect() {
+  try {
+    // 始终获取完整的菜单列表，不受搜索条件影响
+    const response = await axios.get(`${API_BASE_URL}/menu/list`);
+    if(response.data.success) {
+      const menu = { menuId: null, menuName: '主类目', children: [] };
+      menu.children = response.data.data;
+      menuOptions.value = [menu];
+    }
+  } catch (error) {
+      ElMessage.error('加载菜单树失败');
+  }
+}
+
+/** 展开/折叠操作 */
+function toggleExpandAll() {
+  refreshTable.value = false;
+  isExpandAll.value = !isExpandAll.value;
+  setTimeout(() => {
+    refreshTable.value = true;
+  }, 10);
+}
 
 onMounted(() => {
-  fetchMenus();
+  getList();
 });
-
-const search = () => {
-  fetchMenus();
-};
-
-const reset = () => {
-  searchParams.value = {
-    menuName: '',
-    status: '',
-    visible: ''
-  };
-  fetchMenus();
-};
-
-const addMenu = () => {
-  dialogTitle.value = '新增菜单';
-  isEditMode.value = false;
-  currentMenuId.value = null;
-  currentParentId.value = null;
-  
-  form.value = {
-    menuName: '',
-    menuType: 'M',
-    parentId: null,
-    status: '0',
-    visible: '0',
-    path: '',
-    component: '',
-    icon: '',
-    orderNum: 0,
-    perms: '',
-    isFrame: '1',
-    remark: ''
-  };
-  
-  showDialog.value = true;
-};
-
-const addSubMenu = (parentId: number) => {
-  dialogTitle.value = '新增子菜单';
-  isEditMode.value = false;
-  currentMenuId.value = null;
-  currentParentId.value = parentId;
-  
-  form.value = {
-    menuName: '',
-    menuType: 'C',
-    parentId: parentId,
-    status: '0',
-    visible: '0',
-    path: '',
-    component: '',
-    icon: '',
-    orderNum: 0,
-    perms: '',
-    isFrame: '1',
-    remark: ''
-  };
-  
-  showDialog.value = true;
-};
-
-const editMenu = async (menuId: number) => {
-  try {
-    loading.value = true;
-    const response = await axios.get(`/api/menu/${menuId}`);
-    if (response.data.success) {
-      const menu = response.data.data;
-      dialogTitle.value = '修改菜单';
-      isEditMode.value = true;
-      currentMenuId.value = menuId;
-      
-      form.value = {
-        menuName: menu.menuName,
-        menuType: menu.menuType,
-        parentId: menu.parentId,
-        status: menu.status || '0',
-        visible: menu.visible || '0',
-        path: menu.path || '',
-        component: menu.component || '',
-        icon: menu.icon || '',
-        orderNum: menu.orderNum || 0,
-        perms: menu.perms || '',
-        isFrame: menu.isFrame || '1',
-        remark: menu.remark || ''
-      };
-      
-      showDialog.value = true;
-    } else {
-      alert('获取菜单详情失败: ' + response.data.message);
-    }
-  } catch (error) {
-    console.error('获取菜单详情出错:', error);
-    alert('获取菜单详情出错');
-  } finally {
-    loading.value = false;
-  }
-};
-
-const submitForm = async () => {
-  try {
-    loading.value = true;
-    let response;
-    
-    if (isEditMode.value && currentMenuId.value) {
-      response = await axios.put('/api/menu', {
-        ...form.value,
-        menuId: currentMenuId.value
-      });
-    } else {
-      response = await axios.post('/api/menu', form.value);
-    }
-    
-    if (response.data.success) {
-      alert(response.data.message);
-      closeDialog();
-      fetchMenus();
-    } else {
-      alert(response.data.message || '操作失败');
-    }
-  } catch (error) {
-    console.error('保存菜单出错:', error);
-    alert('保存菜单出错');
-  } finally {
-    loading.value = false;
-  }
-};
-
-const closeDialog = () => {
-  showDialog.value = false;
-};
-
-const onMenuTypeChange = () => {
-  if (form.value.menuType === 'M') {
-    form.value.component = '';
-    form.value.perms = '';
-  }
-};
-
-const deleteMenu = async (menuId: number) => {
-  if (!confirm('确定要删除此菜单吗？')) return;
-  
-  try {
-    loading.value = true;
-    const response = await axios.delete(`/api/menu/${menuId}`);
-    if (response.data.success) {
-      alert('删除成功');
-      fetchMenus();
-    } else {
-      alert(`删除失败: ${response.data.message}`);
-    }
-  } catch (error) {
-    console.error('删除菜单出错:', error);
-    alert('删除菜单时出错');
-  } finally {
-    loading.value = false;
-  }
-};
-
-const batchEdit = () => {
-  if (!selectedMenus.value.length) {
-    alert('请先选择要操作的菜单');
-    return;
-  }
-  showBatchDialog.value = true;
-  batchForm.value = {
-    status: '',
-    visible: ''
-  };
-};
-
-const submitBatchForm = async () => {
-  try {
-    loading.value = true;
-    const response = await axios.put('/api/menu/batch', {
-      menuIds: selectedMenus.value,
-      ...batchForm.value
-    });
-    
-    if (response.data.success) {
-      alert(response.data.message);
-      closeBatchDialog();
-      fetchMenus();
-    } else {
-      alert(response.data.message || '批量操作失败');
-    }
-  } catch (error) {
-    console.error('批量操作出错:', error);
-    alert('批量操作出错');
-  } finally {
-    loading.value = false;
-  }
-};
-
-const closeBatchDialog = () => {
-  showBatchDialog.value = false;
-};
-
-const batchDelete = async () => {
-  if (!selectedMenus.value.length) {
-    alert('请先选择要删除的菜单');
-    return;
-  }
-  
-  if (!confirm(`确定要删除选中的 ${selectedMenus.value.length} 个菜单吗？`)) return;
-  
-  try {
-    loading.value = true;
-    const response = await axios.delete('/api/menu/batch', {
-      data: { menuIds: selectedMenus.value }
-    });
-    
-    if (response.data.success) {
-      alert('批量删除成功');
-      fetchMenus();
-    } else {
-      alert(`批量删除失败: ${response.data.message}`);
-    }
-  } catch (error) {
-    console.error('批量删除出错:', error);
-    alert('批量删除出错');
-  } finally {
-    loading.value = false;
-  }
-};
-
-const toggleSelect = (menuId: number) => {
-  const index = selectedMenus.value.indexOf(menuId);
-  if (index === -1) {
-    selectedMenus.value.push(menuId);
-  } else {
-    selectedMenus.value.splice(index, 1);
-  }
-};
-
-const refresh = () => {
-  fetchMenus();
-};
-
-const toggleExpand = () => {
-  isExpanded.value = !isExpanded.value;
-};
-
-const handleIconSelect = (icon: string) => {
-  form.value.icon = icon;
-  showIconPicker.value = false;
-};
-
-const getMenuTypeIcon = (type: string) => {
-  switch (type) {
-    case 'M': return '📁';
-    case 'C': return '📄';
-    case 'F': return '🔘';
-    default: return '';
-  }
-};
-
-const getMenuTypeText = (type: string) => {
-  switch (type) {
-    case 'M': return '目录';
-    case 'C': return '菜单';
-    case 'F': return '按钮';
-    default: return '';
-  }
-};
-
-const getStatusText = (status: string) => {
-  return status === '0' ? '正常' : '停用';
-};
-
-const getVisibleText = (visible: string) => {
-  return visible === '0' ? '显示' : '隐藏';
-};
 </script>
 
 <style scoped>
-.menu-management {
-  background: white;
+.app-container {
   padding: 20px;
-  border-radius: 5px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
-
-.search-form {
-  display: flex;
-  gap: 15px;
-  margin-bottom: 20px;
-  padding: 15px;
-  border: 1px solid #eaeaea;
-  background: #f8f8f8;
-  border-radius: 5px;
-  flex-wrap: wrap;
-}
-
-.form-item {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  min-width: 150px;
-}
-
-.form-item label {
-  font-weight: bold;
-  font-size: 14px;
-}
-
-.form-item input,
-.form-item select {
-  border: 1px solid #ddd;
-  padding: 8px 12px;
-  border-radius: 4px;
-  font-size: 14px;
-}
-
-.search-buttons {
-  display: flex;
-  gap: 10px;
-  align-items: flex-end;
-}
-
-.btn {
-  border: 1px solid #ddd;
-  padding: 8px 15px;
-  background: #fff;
-  cursor: pointer;
-  border-radius: 4px;
-  font-size: 14px;
-  transition: all 0.3s;
-}
-
-.btn:hover {
-  background: #f0f0f0;
-}
-
-.btn-primary {
-  background: #1890ff;
-  color: white;
-  border-color: #1890ff;
-}
-
-.btn-primary:hover {
-  background: #40a9ff;
-  border-color: #40a9ff;
-}
-
-.btn-success {
-  background: #52c41a;
-  color: white;
-  border-color: #52c41a;
-}
-
-.btn-success:hover {
-  background: #73d13d;
-  border-color: #73d13d;
-}
-
-.btn-danger {
-  background: #ff4d4f;
-  color: white;
-  border-color: #ff4d4f;
-}
-
-.btn-danger:hover {
-  background: #ff7875;
-  border-color: #ff7875;
-}
-
-.toolbar {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 15px;
-  padding: 10px;
-  border: 1px solid #eaeaea;
-  background: #f8f8f8;
-  border-radius: 5px;
-}
-
-.btn-group {
-  display: flex;
-  gap: 10px;
-}
-
-.tree-view {
-  border: 1px solid #eaeaea;
-  background: #f9f9f9;
-  padding: 15px;
-  border-radius: 5px;
-  max-height: 500px;
-  overflow-y: auto;
-}
-
-.tree-node {
-  margin: 5px 0;
-  padding: 10px 15px;
-  border: 1px solid #eee;
-  background: white;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border-radius: 4px;
-  transition: all 0.3s;
-  cursor: pointer;
-}
-
-.tree-node:hover {
-  background: #f5f5f5;
-}
-
-.tree-node.selected {
-  background: #e6f7ff;
-  border-color: #91d5ff;
-}
-
-.tree-node.parent {
-  font-weight: bold;
-  background: #e6f7ff;
-}
-
-.tree-node.child {
-  margin-left: 30px;
-  background: #fafafa;
-}
-
-.d-none {
-  display: none;
-}
-
-.link {
-  color: #1890ff;
-  text-decoration: none;
-  cursor: pointer;
-  margin-left: 10px;
-  background: none;
-  border: none;
-  padding: 0;
-  font-size: 14px;
-}
-
-.link:hover {
-  text-decoration: underline;
-}
-
-.status-tag {
-  padding: 2px 8px;
-  border-radius: 4px;
-  margin-left: 10px;
-  font-size: 12px;
-}
-
-.status-normal {
-  background: #f6ffed;
-  color: #52c41a;
-  border: 1px solid #b7eb8f;
-}
-
-.status-disabled {
-  background: #fff2f0;
-  color: #ff4d4f;
-  border: 1px solid #ffccc7;
-}
-
-.visible-tag {
-  padding: 2px 8px;
-  border-radius: 4px;
-  margin-left: 5px;
-  font-size: 12px;
-}
-
-.visible-show {
-  background: #fafafa;
-  color: #595959;
-  border: 1px solid #d9d9d9;
-}
-
-.visible-hide {
-  background: #f0f0f0;
-  color: #8c8c8c;
-  border: 1px solid #d9d9d9;
-}
-
-.menu-type-tag {
-  padding: 2px 8px;
-  border-radius: 4px;
-  margin-left: 5px;
-  font-size: 12px;
-  background: #f0f0f0;
-  color: #595959;
-  border: 1px solid #d9d9d9;
-}
-
-.menu-content {
-  display: flex;
-  align-items: center;
-  font-size: 14px;
-}
-
-.menu-content input[type="checkbox"] {
-  margin-right: 10px;
-}
-
-.menu-icon {
-  margin-right: 8px;
-}
-
-.menu-info {
-  margin-left: 15px;
-  display: flex;
-}
-
-.loading {
-  padding: 20px;
-  text-align: center;
-  color: #999;
-}
-
-.empty {
-  padding: 20px;
-  text-align: center;
-  color: #999;
-}
-
-/* 对话框样式 */
-.dialog-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1000;
-}
-
-.dialog {
-  background: white;
-  border-radius: 8px;
-  width: 600px;
-  max-width: 90%;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
-
-.dialog-header {
-  padding: 16px 24px;
-  border-bottom: 1px solid #f0f0f0;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.dialog-header h3 {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 500;
-}
-
-.close-btn {
-  background: none;
-  border: none;
-  font-size: 20px;
-  cursor: pointer;
-  color: #999;
-}
-
-.close-btn:hover {
-  color: #666;
-}
-
-.dialog-body {
-  padding: 24px;
-}
-
-.form-group {
-  margin-bottom: 16px;
-}
-
-.form-group label {
-  display: block;
+.mb8 {
   margin-bottom: 8px;
-  font-weight: 500;
-  font-size: 14px;
-}
-
-.form-group input,
-.form-group select,
-.form-group textarea {
-  width: 100%;
-  padding: 8px 12px;
-  border: 1px solid #d9d9d9;
-  border-radius: 4px;
-  font-size: 14px;
-}
-
-.form-group input:focus,
-.form-group select:focus,
-.form-group textarea:focus {
-  border-color: #40a9ff;
-  outline: none;
-  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
-}
-
-.icon-selector {
-  display: flex;
-  gap: 10px;
-}
-
-.btn-icon {
-  padding: 8px 12px;
-  border: 1px solid #d9d9d9;
-  border-radius: 4px;
-  background: #fafafa;
-  cursor: pointer;
-}
-
-.btn-icon:hover {
-  border-color: #40a9ff;
-}
-
-.form-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  margin-top: 24px;
-  padding-top: 16px;
-  border-top: 1px solid #f0f0f0;
-}
-
-.required {
-  color: #ff4d4f;
-  margin-left: 4px;
 }
 </style>

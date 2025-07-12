@@ -25,7 +25,12 @@ public class DepartmentController {
             @RequestParam(required = false) String status,
             @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date startTime,
             @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM-dd") Date endTime) {
-        return departmentMapper.selectByCondition(name, code, status, startTime, endTime);
+
+        List<Department> departments = departmentMapper.selectByCondition(name, code, status, startTime, endTime);
+        for (Department dept : departments) {
+            dept.setUserCount(departmentMapper.countUsersByDeptId(dept.getId()));
+        }
+        return departments;
     }
 
     @GetMapping("/tree")

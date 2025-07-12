@@ -20,8 +20,11 @@ public class Menu {
     private String updateBy;
     private Date updateTime;
     private String remark;
-    
+
     private List<Menu> children;
+
+    public Menu() {
+    }
 
     public Menu(List<Menu> children) {
         this.children = children;
@@ -164,7 +167,12 @@ public class Menu {
         this.remark = remark;
     }
 
+    public List<Menu> getChildren() {
+        return children;
+    }
+
     public void setChildren(List<Menu> children) {
+        this.children = children;
     }
 
     public static class ResponseFields {
