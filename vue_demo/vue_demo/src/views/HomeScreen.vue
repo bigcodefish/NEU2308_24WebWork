@@ -2,6 +2,7 @@
 	<div class="dashboard-container">
 		<div class="wireframe">
 			<div class="header">
+				<div class="exit-btn" @click="logout">退出登录</div>
 				<div class="title">地铁隧道巡线大数据仿真和分析平台</div>
 				<div class="enter-btn" @click="toggleDropdown">进入系统</div>
 				<!-- 下拉栏 -->
@@ -375,6 +376,29 @@
 	import axios from 'axios'
 	import * as echarts from 'echarts'
 	import { useTaskStore } from '../stores/task'
+	import 'cesium/Build/Cesium/Widgets/widgets.css';
+
+	const cesiumContainer = ref<HTMLElement | null>(null);
+
+	// 数据采样函数
+	const sampleData = (data : any[], sampleRate : number) => {
+		const sampledData = [];
+		for (let i = 0; i < data.length; i += sampleRate) {
+			sampledData.push(data[i]);
+		}
+		return sampledData;
+	};
+
+	// 缓存数据
+	const cacheData = (key : string, data : any) => {
+		localStorage.setItem(key, JSON.stringify(data));
+	};
+
+	// 获取缓存数据
+	const getCachedData = (key : string) => {
+		const cached = localStorage.getItem(key);
+		return cached ? JSON.parse(cached) : null;
+	};
 
 	const API_URL = 'http://localhost:8080/api/defects'
 	const API_URL_TASK = 'http://localhost:8080/api/tasks'
@@ -385,7 +409,8 @@
 	}
 	const navigateTo = (path : string) => {
 		router.push(path)
-		dropdownVisible.value = false // 跳转后隐藏下拉栏
+		dropdownVisible.value = false
+		// 跳转后隐藏下拉栏
 	}
 
 	const taskStore = useTaskStore()
@@ -421,8 +446,14 @@
 		return Math.round((inspectionsWithDefects.value / totalInspections.value) * 100);
 	});
 
-	const countdown = ref(180) // 初始倒计时为3分钟（180秒）
-	let refreshInterval : NodeJS.Timer | number | null = null // 修改这里的类型定义
+	const countdown = ref(180) // 倒计时为3分钟（180秒）
+	let refreshInterval : NodeJS.Timer | number | null = null
+
+	const logout = () => {
+		// 清除本地存储的用户信息
+		localStorage.removeItem('user');
+		router.push('/');
+	}
 
 	const startCountdown = () => {
 		refreshInterval = setInterval(() => {
@@ -454,16 +485,26 @@
 
 	// 获取缺陷发现率数据的方法
 	const fetchDefectDiscoveryStats = async () => {
+		const cachedData = getCachedData('defectDiscoveryStats');
+		if (cachedData) {
+			totalInspections.value = cachedData.totalInspections;
+			inspectionsWithDefects.value = cachedData.inspectionsWithDefects;
+			return;
+		}
 		try {
 			const res = await axios.get(`${API_URL_TASK}/defect-discovery-stats`);
 			totalInspections.value = res.data.totalInspections;
 			inspectionsWithDefects.value = res.data.inspectionsWithDefects;
+			cacheData('defectDiscoveryStats', {
+				totalInspections: totalInspections.value,
+				inspectionsWithDefects: inspectionsWithDefects.value
+			});
 		} catch (e) {
 			console.error('获取缺陷发现率数据失败', e);
 		}
 	};
 
-	// 添加获取严重程度样式类的方法
+	// 获取严重程度样式类的方法
 	const getSeverityClass = (severity : string | null) => {
 		if (!severity) return '';
 		switch (severity) {
@@ -477,14 +518,21 @@
 
 	// 获取人员的任务统计信息
 	const fetchPersonTaskStats = async () => {
-		try {
-			const res = await axios.get(`${API_URL_TASK}/stats/person`)
-			personTaskStats.value = res.data
-			renderPersonTaskChart()
-		} catch (e) {
-			console.error('获取人员任务统计信息失败', e)
+		const cachedData = getCachedData('personTaskStats');
+		if (cachedData) {
+			personTaskStats.value = cachedData;
+			renderPersonTaskChart();
+			return;
 		}
-	}
+		try {
+			const res = await axios.get(`${API_URL_TASK}/stats/person`);
+			personTaskStats.value = res.data;
+			renderPersonTaskChart();
+			cacheData('personTaskStats', personTaskStats.value);
+		} catch (e) {
+			console.error('获取人员任务统计信息失败', e);
+		}
+	};
 
 	// 渲染人员任务统计柱状图
 	const renderPersonTaskChart = () => {
@@ -618,6 +666,12 @@
 
 	// 获取每月的巡检次数
 	const fetchMonthlyTaskCount = async () => {
+		const cachedData = getCachedData('monthlyTaskCount');
+		if (cachedData) {
+			monthlyTaskData.value = cachedData;
+			renderMonthlyTaskChart();
+			return;
+		}
 		try {
 			const res = await axios.get(`${API_URL_TASK}/monthly-count`)
 			monthlyTaskData.value = res.data.map((item : any) => ({
@@ -627,6 +681,7 @@
 
 			// 数据获取后渲染图表
 			renderMonthlyTaskChart()
+			cacheData('monthlyTaskCount', monthlyTaskData.value);
 		} catch (e) {
 			console.error('获取每月巡检次数失败', e)
 			monthlyTaskData.value = []
@@ -767,6 +822,22 @@
 
 	// 获取今日巡检数量、昨日巡检数量、今日巡视距离、昨日巡视距离
 	const fetchDailyTaskStats = async () => {
+		const cachedData = getCachedData('dailyTaskStats');
+		if (cachedData) {
+			todayTaskCount.value = cachedData.todayTaskCount;
+			yesterdayTaskCount.value = cachedData.yesterdayTaskCount;
+			todayDistance.value = cachedData.todayDistance;
+			yesterdayDistance.value = cachedData.yesterdayDistance;
+
+			// 计算环比增长
+			if (yesterdayTaskCount.value !== 0) {
+				taskGrowthRate.value = parseFloat((((todayTaskCount.value - yesterdayTaskCount.value) / yesterdayTaskCount.value) * 100).toFixed(1));
+			}
+			if (yesterdayDistance.value !== 0) {
+				distanceGrowthRate.value = parseFloat((((todayDistance.value - yesterdayDistance.value) / yesterdayDistance.value) * 100).toFixed(1));
+			}
+			return;
+		}
 		try {
 			const res = await axios.get(`${API_URL_TASK}/daily-stats`);
 			todayTaskCount.value = res.data.todayTaskCount;
@@ -781,6 +852,13 @@
 			if (yesterdayDistance.value !== 0) {
 				distanceGrowthRate.value = parseFloat((((todayDistance.value - yesterdayDistance.value) / yesterdayDistance.value) * 100).toFixed(1));
 			}
+
+			cacheData('dailyTaskStats', {
+				todayTaskCount: todayTaskCount.value,
+				yesterdayTaskCount: yesterdayTaskCount.value,
+				todayDistance: todayDistance.value,
+				yesterdayDistance: yesterdayDistance.value
+			});
 		} catch (e) {
 			console.error('获取每日任务统计数据失败', e);
 		}
@@ -840,7 +918,7 @@
 	const lineChart = ref<HTMLElement | null>(null)
 	const monthlyDefectStats = ref<{ month : string; count : number }[]>([])
 
-	// 新增的状态数据
+	// 状态数据
 	const processedDefects = ref(0)
 	const severityStats = ref({
 		high: 0,
@@ -860,6 +938,13 @@
 
 	// 获取缺陷统计数据
 	const fetchDefectStats = async () => {
+		const cachedData = getCachedData('defectStats');
+		if (cachedData) {
+			defectStats.value = cachedData.defectStats;
+			processedDefects.value = cachedData.processedDefects;
+			severityStats.value = cachedData.severityStats;
+			return;
+		}
 		try {
 			const res = await axios.get(`${API_URL}/stats`)
 			defectStats.value = res.data
@@ -894,6 +979,12 @@
 				medium: mediumRes.data.length,
 				low: lowRes.data.length
 			}
+
+			cacheData('defectStats', {
+				defectStats: defectStats.value,
+				processedDefects: processedDefects.value,
+				severityStats: severityStats.value
+			});
 		} catch (e) {
 			console.error('获取缺陷统计数据失败', e)
 		}
@@ -901,6 +992,12 @@
 
 	// 获取缺陷类型统计数据
 	const fetchDefectTypeStats = async () => {
+		const cachedData = getCachedData('defectTypeStats');
+		if (cachedData) {
+			defectTypes.value = cachedData;
+			renderPieChart();
+			return;
+		}
 		try {
 			const res = await axios.get(`${API_URL}/type-stats`)
 			defectTypes.value = res.data.map((item : any) => ({
@@ -910,6 +1007,7 @@
 
 			// 数据获取后渲染图表
 			renderPieChart()
+			cacheData('defectTypeStats', defectTypes.value);
 		} catch (e) {
 			console.error('获取缺陷类型统计数据失败', e)
 		}
@@ -1090,6 +1188,12 @@
 
 	// 获取月度缺陷数据方法
 	const fetchMonthlyDefectStats = async () => {
+		const cachedData = getCachedData('monthlyDefectStats');
+		if (cachedData) {
+			monthlyDefectStats.value = cachedData;
+			renderLineChart();
+			return;
+		}
 		try {
 			const res = await axios.get(`${API_URL}/monthly-stats`);
 			monthlyDefectStats.value = res.data.map((item : any) => ({
@@ -1099,6 +1203,7 @@
 
 			// 数据获取后渲染图表
 			renderLineChart();
+			cacheData('monthlyDefectStats', monthlyDefectStats.value);
 		} catch (e) {
 			console.error('获取月度缺陷统计数据失败', e);
 			monthlyDefectStats.value = [];
@@ -1314,6 +1419,22 @@
 
 	onMounted(async () => {
 		try {
+			/* if (cesiumContainer.value) {
+				// 初始化 Cesium Viewer
+				const viewer = new Cesium.Viewer(cesiumContainer.value, {
+					animation: false, // 禁用动画控件
+					baseLayerPicker: false, // 禁用基础图层选择器
+					fullscreenButton: false, // 禁用全屏按钮
+					geocoder: false, // 禁用地理编码器
+					homeButton: false, // 禁用主页按钮
+					infoBox: false, // 禁用信息框
+					sceneModePicker: false, // 禁用场景模式选择器
+					selectionIndicator: false, // 禁用选择指示器
+					timeline: false, // 禁用时间轴
+					navigationHelpButton: false, // 禁用导航帮助按钮
+					navigationInstructionsInitiallyVisible: false // 初始时不显示导航说明
+				});
+			} */
 			await taskStore.fetchTaskStats()
 			await Promise.all([
 				fetchDefectStats(),
@@ -1343,6 +1464,10 @@
 		min-height: 100vh;
 		padding: 20px;
 		box-sizing: border-box;
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+		gap: 20px;
+		padding: 20px;
 	}
 
 	.wireframe {
@@ -1362,6 +1487,8 @@
 		position: relative;
 		background: rgba(0, 168, 232, 0.1);
 		flex-shrink: 0;
+		align-items: center;
+		justify-content: space-between;
 	}
 
 	.title {
@@ -1388,8 +1515,8 @@
 	}
 
 	.main-content {
-		display: flex;
-		flex: 1;
+		display: grid;
+		grid-template-columns: 1fr 2fr 1fr;
 		gap: 20px;
 		padding: 20px;
 		overflow: auto;
@@ -1443,11 +1570,8 @@
 		padding: 10px;
 		flex: 1;
 		margin: 5px;
-		/* 新增：添加外边距，使每个统计项之间有间隔 */
 		background: rgba(0, 168, 232, 0.1);
-		/* 新增：添加背景颜色 */
 		border-radius: 4px;
-		/* 新增：添加圆角 */
 	}
 
 	.stat-number {
@@ -1872,5 +1996,39 @@
 	.earth-section {
 		position: relative;
 		height: 300px;
+	}
+
+	.exit-btn {
+		position: absolute;
+		top: 20px;
+		left: 30px;
+		border: 2px solid #00a8e8;
+		padding: 10px 20px;
+		background: rgba(0, 168, 232, 0.2);
+		cursor: pointer;
+		color: #fff;
+		border-radius: 4px;
+		transition: all 0.3s ease;
+	}
+
+	.exit-btn:hover {
+		background: rgba(0, 168, 232, 0.4);
+	}
+
+	@media (max-width: 1200px) {
+		.main-content {
+			grid-template-columns: 1fr 1fr;
+		}
+	}
+
+	@media (max-width: 768px) {
+		.main-content {
+			grid-template-columns: 1fr;
+		}
+	}
+
+	#cesiumContainer {
+		width: 100%;
+		height: 500px;
 	}
 </style>

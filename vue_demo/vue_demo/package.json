@@ -17,6 +17,7 @@
     "@fullcalendar/interaction": "^6.1.18",
     "@fullcalendar/vue3": "^6.1.18",
     "axios": "^1.10.0",
+    "cesium": "^1.131.0",
     "crypto-js": "^4.2.0",
     "echarts": "^5.6.0",
     "element-plus": "^2.9.2",
