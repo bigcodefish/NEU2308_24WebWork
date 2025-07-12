@@ -135,7 +135,7 @@ public class UserController {
         return result;
     }
 
-    private PasswordStrength checkPasswordStrength(String password) {
+    PasswordStrength checkPasswordStrength(String password) {
         if (password == null || password.length() < 6) {
             return PasswordStrength.WEAK;
         }

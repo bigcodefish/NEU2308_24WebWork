@@ -1,16 +1,11 @@
--- `public`.`role_menu_relation` definition
+CREATE TABLE role_menu_relation (
+  id bigserial NOT NULL,
+  role_id bigint NOT NULL,
+  menu_id bigint NOT NULL,
+  PRIMARY KEY (id),
+  CONSTRAINT uk_role_menu UNIQUE (role_id, menu_id)
+);
 
--- Drop table
-
--- DROP TABLE `public`.`role_menu_relation`;
-
-CREATE TABLE `public`.`role_menu_relation` (
-	`id` bigint AUTO_INCREMENT NOT NULL,
-	`role_id` bigint NOT NULL,
-	`menu_id` bigint NOT NULL,
-	CONSTRAINT `role_menu_relation_pkey` PRIMARY KEY (id),
-	CONSTRAINT `uk_role_menu` UNIQUE (role_id, menu_id)
-) TABLESPACE sys_default AUTO_INCREMENT = 1;
 INSERT INTO `public`.`role_menu_relation` (`role_id`,`menu_id`) VALUES
 	 (1,1),
 	 (1,2),

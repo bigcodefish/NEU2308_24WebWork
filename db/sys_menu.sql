@@ -1,35 +1,30 @@
+CREATE TABLE sys_menu (
+  menuId bigserial NOT NULL,
+  menuName varchar(500) NOT NULL,
+  parentId bigint DEFAULT NULL,
+  orderNum integer DEFAULT NULL,
+  path varchar(500) DEFAULT '',
+  component varchar(500) DEFAULT NULL,
+  isFrame varchar(500) DEFAULT '1',
+  menuType char(1) NOT NULL,
+  visible varchar(500) DEFAULT '0',
+  status varchar(500) DEFAULT '0',
+  perms varchar(500) DEFAULT NULL,
+  icon varchar(500) DEFAULT '#',
+  createBy varchar(500) DEFAULT '',
+  createTime timestamp DEFAULT CURRENT_TIMESTAMP,
+  updateBy varchar(500) DEFAULT '',
+  updateTime timestamp DEFAULT CURRENT_TIMESTAMP,
+  remark varchar(500) DEFAULT '',
+  PRIMARY KEY (menuId),
+  CONSTRAINT idx_sys_menu_name_root UNIQUE (menuName),
+  CONSTRAINT idx_sys_menu_name_parent UNIQUE (menuName, parentId)
+);
 
--- `public`.`sys_menu` definition
-
--- Drop table
-
--- DROP TABLE `public`.`sys_menu`;
-
-CREATE TABLE `public`.`sys_menu` (
-	`menuId` bigint DEFAULT nextval('sys_menu_menuId_seq'::regclass),
-	`menuName` character varying(500 char) NOT NULL,
-	`parentId` bigint NULL,
-	`orderNum` integer NULL,
-	`path` character varying(500 char) NULL DEFAULT ''::varchar,
-	`component` character varying(500 char) NULL,
-	`isFrame` character varying(500 char) NULL DEFAULT '1'::varchar,
-	`menuType` character(1 char) NOT NULL,
-	`visible` character varying(500 char) NULL DEFAULT '0'::varchar,
-	`status` character varying(500 char) NULL DEFAULT '0'::varchar,
-	`perms` character varying(500 char) NULL,
-	`icon` character varying(500 char) NULL DEFAULT '#'::varchar,
-	`createBy` character varying(500 char) NULL DEFAULT ''::varchar,
-	`createTime` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-	`updateBy` character varying(500 char) NULL DEFAULT ''::varchar,
-	`updateTime` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
-	`remark` character varying(500 char) NULL DEFAULT ''::varchar,
-	CONSTRAINT `sys_menu_pkey` PRIMARY KEY (menuId)
-)TABLESPACE sys_default;
-CREATE UNIQUE INDEX idx_sys_menu_name_parent ON public.sys_menu USING btree (menuName NULLS FIRST, parentId NULLS FIRST) WHERE (parentId IS NOT NULL) TABLESPACE sys_default;
-CREATE UNIQUE INDEX idx_sys_menu_name_root ON public.sys_menu USING btree (menuName NULLS FIRST) WHERE (parentId IS NULL) TABLESPACE sys_default;
-CREATE INDEX idx_sys_menu_parentId ON public.sys_menu USING btree (parentId NULLS FIRST) TABLESPACE sys_default;
-CREATE INDEX idx_sys_menu_status ON public.sys_menu USING btree (status NULLS FIRST) TABLESPACE sys_default;
-CREATE INDEX idx_sys_menu_type ON public.sys_menu USING btree (menuType NULLS FIRST) TABLESPACE sys_default;
+-- 创建索引
+CREATE INDEX idx_sys_menu_parentId ON sys_menu (parentId);
+CREATE INDEX idx_sys_menu_status ON sys_menu (status);
+CREATE INDEX idx_sys_menu_type ON sys_menu (menuType);
 
 
 INSERT INTO `public`.`sys_menu` (`menuName`,`parentId`,`orderNum`,`path`,`component`,`isFrame`,`menuType`,`visible`,`status`,`perms`,`icon`,`createBy`,`createTime`,`updateBy`,`updateTime`,`remark`) VALUES
