@@ -1,3 +1,32 @@
+CREATE TABLE sys_menu (
+  menuId bigserial NOT NULL,
+  menuName varchar(500) NOT NULL,
+  parentId bigint DEFAULT NULL,
+  orderNum integer DEFAULT NULL,
+  path varchar(500) DEFAULT '',
+  component varchar(500) DEFAULT NULL,
+  isFrame varchar(500) DEFAULT '1',
+  menuType char(1) NOT NULL,
+  visible varchar(500) DEFAULT '0',
+  status varchar(500) DEFAULT '0',
+  perms varchar(500) DEFAULT NULL,
+  icon varchar(500) DEFAULT '#',
+  createBy varchar(500) DEFAULT '',
+  createTime timestamp DEFAULT CURRENT_TIMESTAMP,
+  updateBy varchar(500) DEFAULT '',
+  updateTime timestamp DEFAULT CURRENT_TIMESTAMP,
+  remark varchar(500) DEFAULT '',
+  PRIMARY KEY (menuId),
+  CONSTRAINT idx_sys_menu_name_root UNIQUE (menuName),
+  CONSTRAINT idx_sys_menu_name_parent UNIQUE (menuName, parentId)
+);
+
+-- 创建索引
+CREATE INDEX idx_sys_menu_parentId ON sys_menu (parentId);
+CREATE INDEX idx_sys_menu_status ON sys_menu (status);
+CREATE INDEX idx_sys_menu_type ON sys_menu (menuType);
+
+
 INSERT INTO `public`.`sys_menu` (`menuName`,`parentId`,`orderNum`,`path`,`component`,`isFrame`,`menuType`,`visible`,`status`,`perms`,`icon`,`createBy`,`createTime`,`updateBy`,`updateTime`,`remark`) VALUES
 	 ('系统管理',NULL,1,'system',NULL,'1','M','0','0',NULL,'system','admin','''2025-07-03 21:10:23''','admin','''2025-07-03 21:10:23''','系统管理目录'),
 	 ('用户管理',1,1,'user','system/user/index','1','C','0','0','system:user:list','user','admin','''2025-07-03 21:10:23''','admin','''2025-07-03 21:10:23''','用户管理菜单'),
